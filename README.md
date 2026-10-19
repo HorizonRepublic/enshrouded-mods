@@ -65,6 +65,10 @@ A bug report with the log attached goes to
 
 ## Running a server
 
+A server with the mods shows its pack version in the server browser, as
+`<name> [ensh-mods <version>]`, so players can tell which release to install
+before they join.
+
 ### Windows
 
 Copy `powrprof.dll` next to `enshrouded_server.exe` and restart the server.

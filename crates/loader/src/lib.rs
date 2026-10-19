@@ -5,6 +5,7 @@
 //! Nothing here may take the game down: every mod step runs behind
 //! `catch_unwind`, and a step that fails disables its feature and logs why.
 
+pub mod advertise;
 #[cfg(windows)]
 mod altar_count;
 #[cfg(windows)]

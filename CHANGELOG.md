@@ -4,6 +4,11 @@
 
 - Flame altar count: the altars each Flame level allows come from
   `ensh-mods.toml`, twice vanilla by default, up to 16.
+- The server shows its pack version in the server browser, `<name> [ensh-mods
+  <version>]`, and as the Steam rule `ensh-mods`.
+- CI checks every new dedicated server build against the build table and opens
+  an issue when the mods do not support it.
+- The loader starts outside the loader lock.
 - `ensh-mods.toml` next to the executable, written with defaults and comments
   on first start.
 

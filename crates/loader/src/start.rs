@@ -96,6 +96,12 @@ pub(crate) fn start(forwarded: Option<usize>) {
         install_seam();
     }
 
+    if build.role == crate::builds::Role::Server
+        && let Some(dir) = exe.parent()
+    {
+        crate::advertise::start(dir.to_path_buf());
+    }
+
     if build.role == crate::builds::Role::Server {
         let (Some(upgrade), Some(add_zones)) = (
             entry("upgrade_building_range"),
