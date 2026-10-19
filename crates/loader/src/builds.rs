@@ -42,6 +42,9 @@ pub struct Build {
     /// `max_altars(balancing, flame_level) -> u8`: altars allowed at a Flame
     /// level, capped at 16.
     pub max_altars: u64,
+    /// `server_change(provider, request)`: the client is asked to join the
+    /// server whose `ip:port` starts `request`; 0 on the server.
+    pub server_change: u64,
 }
 
 const fn guid(hex: &[u8; 32]) -> [u8; 16] {
@@ -81,6 +84,7 @@ pub const BUILDS: &[Build] = &[
         mark_changed: 0x666a90,
         seam_check: 0x93e210,
         max_altars: 0x931860,
+        server_change: 0,
     },
     Build {
         name: "1.0 client (1269579)",
@@ -101,6 +105,7 @@ pub const BUILDS: &[Build] = &[
         mark_changed: 0x9c5df0,
         seam_check: 0xe899f0,
         max_altars: 0xe7d070,
+        server_change: 0x107d200,
     },
 ];
 

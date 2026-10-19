@@ -14,6 +14,7 @@ pub mod builds;
 pub mod config;
 #[cfg(windows)]
 mod hook;
+pub mod join;
 #[cfg(windows)]
 pub mod log;
 #[cfg(windows)]

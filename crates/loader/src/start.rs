@@ -73,10 +73,20 @@ pub(crate) fn start(forwarded: Option<usize>) {
     let config = exe.parent().map(load_config).unwrap_or_default();
     let seam = image.base as usize + build.seam_check as usize;
     let max_altars = image.base as usize + build.max_altars as usize;
+    let server_change = match build.server_change {
+        0 => 0,
+        rva => image.base as usize + rva as usize,
+    };
     let install_seam = move || {
         match crate::seam::install(seam) {
             Ok(()) => info!("building across seams on"),
             Err(e) => warn!("building across seams off: {e}"),
+        }
+        if server_change != 0 {
+            match crate::join::install(server_change) {
+                Ok(()) => info!("join check on"),
+                Err(e) => warn!("join check off: {e}"),
+            }
         }
         let table = config.altars_per_flame_level.clone();
         match crate::altar_count::install(max_altars, config) {

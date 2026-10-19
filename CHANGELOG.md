@@ -6,6 +6,8 @@
   `ensh-mods.toml`, twice vanilla by default, up to 16.
 - The server shows its pack version in the server browser, `<name> [ensh-mods
   <version>]`, and as the Steam rule `ensh-mods`.
+- Join check: on joining, a modded client asks the server for its pack version
+  and shows which release to install when they differ.
 - CI checks every new dedicated server build against the build table and opens
   an issue when the mods do not support it.
 - The loader starts outside the loader lock.
