@@ -45,12 +45,21 @@ impl Copies {
             .retain(|(_, altar), _| known.binary_search(altar).is_ok());
     }
 
-    /// The altar whose zone holds `point`; with overlapping zones, the one
-    /// with the smallest key, so the answer never depends on order.
+    /// The altar `point` belongs to: of the zones that hold it, the one
+    /// whose altar stands nearest, so each altar keeps its own surroundings
+    /// where zones overlap; ties go to the smaller key.
     pub fn altar_at(&self, point: [i64; 3]) -> Option<AltarKey> {
         self.altars
             .iter()
-            .find(|(_, zone)| (0..3).all(|a| zone.min[a] <= point[a] && point[a] < zone.max[a]))
+            .filter(|(_, zone)| (0..3).all(|a| zone.min[a] <= point[a] && point[a] < zone.max[a]))
+            .min_by_key(|(key, zone)| {
+                let centre = |a: usize| (zone.min[a] + zone.max[a]) / 2;
+                let d: i128 = [0, 2]
+                    .iter()
+                    .map(|&a| ((centre(a) - point[a]) as i128).pow(2))
+                    .sum();
+                (d, *key)
+            })
             .map(|(key, _)| *key)
     }
 
@@ -73,8 +82,11 @@ impl Copies {
     /// is nearest, so a bed and its sleeper agree even where zones overlap;
     /// the original outside every zone.
     pub fn at(&self, survivor: Survivor, point: [i64; 3], original: Entity) -> Entity {
-        if self.altar_at(point).is_none() {
+        let Some(altar) = self.altar_at(point) else {
             return original;
+        };
+        if let Some(&copy) = self.slots.get(&(survivor, altar)) {
+            return copy;
         }
         let distance = |home: &[i64; 3]| -> i128 {
             (0..3).map(|a| ((home[a] - point[a]) as i128).pow(2)).sum()
@@ -131,6 +143,11 @@ impl Copies {
     pub fn forget(&mut self, entity: Entity) {
         self.slots.retain(|_, e| *e != entity);
         self.homes.remove(&entity);
+    }
+
+    /// The copy in an altar's slot.
+    pub fn slot(&self, survivor: Survivor, altar: AltarKey) -> Option<Entity> {
+        self.slots.get(&(survivor, altar)).copied()
     }
 
     /// Every kept copy of `survivor` with its home.
@@ -211,10 +228,13 @@ mod tests {
     }
 
     #[test]
-    fn overlapping_zones_pick_the_smallest_key() {
+    fn overlapping_zones_go_to_the_nearest_altar() {
         let mut copies = Copies::default();
         copies.set_altars([(7, zone(0)), (3, zone(40))]);
-        assert_eq!(copies.altar_at([50, 10, 10]), Some(3));
+        // Zone 7 is centred on x 40, zone 3 on x 80.
+        assert_eq!(copies.altar_at([50, 10, 40]), Some(7));
+        assert_eq!(copies.altar_at([70, 10, 40]), Some(3));
+        assert_eq!(copies.altar_at([60, 10, 40]), Some(3));
         assert_eq!(copies.altar_at([10, 10, 10]), Some(7));
     }
 

@@ -325,6 +325,12 @@ unsafe fn bed_owner(
     found: u32,
 ) -> u32 {
     let bed = unsafe { crate::ecs::entity(ctx) };
+    // A bed in an altar's zone belongs to that altar's copy.
+    if let Some(altar) = copies.altar_at(bed_at)
+        && let Some(copy) = copies.slot(npc, altar)
+    {
+        return copy;
+    }
     let read_component: ComponentRead =
         unsafe { std::mem::transmute(COMPONENT_READ.load(Ordering::Acquire)) };
     let distance =
