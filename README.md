@@ -1,91 +1,81 @@
 # ensh-mods
 
-Mods for a private Enshrouded server: building and living get more comfortable,
-while combat, loot, experience and enemies stay vanilla.
+Building mods for Enshrouded, for you and your friends on one server. Bases get
+roomier and easier to build; combat, loot, experience and enemies stay exactly
+as Keen made them.
 
-All mods live in one file, `powrprof.dll`, which the dedicated server and every
-player's game load alike.
+The whole pack is one file, `powrprof.dll`. You, your friends and the server
+install the same file.
+
+## Install
+
+1. Download `ensh-mods-v<version>.zip` from the
+   [latest release](https://github.com/HorizonRepublic/enshrouded-mods/releases/latest).
+2. In Steam, right-click Enshrouded and pick **Manage → Browse local files**.
+3. Copy `powrprof.dll` from the archive into that folder, next to
+   `enshrouded.exe`, and start the game.
+
+The server you play on needs the mods too; [Running a server](#running-a-server)
+covers that part. To remove the mods, delete `powrprof.dll`.
 
 ## Mods
 
-### Flame altar zones
+| Mod                                                 | What changes in game                                                                                                                 |
+| --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| [Flame altar zones](docs/mods/flame-altar-zones.md) | Altars placed close together form one base whose zones overlap without losing area, and you can build across the seams between them. |
 
-Altars whose zones touch or overlap form a cluster, whose area is the sum of its
-altars' zones: what the overlap took comes back as a band of equal width around
-the whole cluster. Placing or upgrading an altar never shrinks a zone, and
-objects can go across the seams between altars of one cluster.
+Every mod in the pack is on as soon as the file is in place.
 
-The cluster's outline follows the altars' boxes, so three altars of different
-sizes give a stepped shape, not one rectangle.
+## Compatibility
 
-## Supported game build
+- **Game version:** Enshrouded 1.0, build `1269579`. After a game update the
+  mods switch themselves off and the game plays vanilla until a release supports
+  the new build. Nothing breaks in the meantime.
+- **Everyone on the same release:** the server and every player.
+- **Servers:** Windows, and Linux through Proton.
+- **Other mods:** works next to EML (Enshrouded Mod Loader) and its data mods.
 
-Enshrouded 1.0, build `1269579` (Steam build `25988414`), server and client.
+## Troubleshooting
 
-On any other build the mods switch themselves off and the game runs vanilla; the
-log says why. After a game update, wait for a release that adds the new build.
+The game writes `logs\ensh-mods.log` next to `enshrouded.exe`. About 15 seconds
+after the game starts it should hold a line ending in `on` for each mod.
 
-## Installing
+| The log says              | Meaning                                                          |
+| ------------------------- | ---------------------------------------------------------------- |
+| No `ensh-mods.log` at all | The game did not load the file: check where `powrprof.dll` sits. |
+| `unknown game build`      | The game updated. Wait for the next release.                     |
+| `... off: <reason>`       | That mod stepped aside and the game runs vanilla for it.         |
 
-Every player and the server need the same release.
+A bug report with the log attached goes to
+[Issues](https://github.com/HorizonRepublic/enshrouded-mods/issues).
 
-### Players
+## Running a server
 
-1. Download `ensh-mods-v<version>.zip` from the repository's Releases page.
-2. In Steam, right-click Enshrouded, then **Manage → Browse local files**.
-3. Copy `powrprof.dll` from the archive into that folder, next to
-   `enshrouded.exe`.
-4. Start the game; within about 15 seconds `logs\ensh-mods.log` in the same
-   folder shows `building across seams on`.
-
-To remove the mods, delete `powrprof.dll`. Steam's file verification leaves it
-in place.
-
-### Dedicated server on Windows
+### Windows
 
 Copy `powrprof.dll` next to `enshrouded_server.exe` and restart the server.
-`logs\ensh-mods.log` shows `altar zones on` and `building across seams on`.
+`logs\ensh-mods.log` should show `altar zones on` and
+`building across seams on`.
 
-### Dedicated server on Linux (Proton)
+### Linux (Proton)
 
 Wine prefers its own `powrprof.dll`, so the server needs an override:
 
-1. Copy `powrprof.dll` into the server folder, for the
+1. Copy `powrprof.dll` into the server folder. For the
    `mornedhels/enshrouded-server` image that is `/opt/enshrouded/server/`.
 2. Set `WINEDLLOVERRIDES=powrprof=n,b` in the server's environment.
 3. Restart the server and check `logs/ensh-mods.log`.
 
-### Next to EML
+### Updating
 
-The mods coexist with EML (Enshrouded Mod Loader), which uses `dbghelp.dll` or
-`dinput8.dll`.
+Replace `powrprof.dll` and restart the server; players replace theirs and
+restart the game. A running game keeps the version it started with.
 
-## Updating
+## Contributing
 
-Replace `powrprof.dll` and restart the game or the server. A running game keeps
-the version it started with.
-
-## Building from source
-
-Needs Rust stable with the MSVC toolchain on Windows.
-
-```sh
-cargo build --release -p loader   # target/release/powrprof.dll
-cargo test
-```
-
-Tests against the real game binaries run when `ENSH_SERVER_EXE` and
-`ENSH_CLIENT_EXE` point at local copies of `enshrouded_server.exe` and
-`enshrouded.exe`.
-
-| Crate                  | Holds                                                       |
-| ---------------------- | ----------------------------------------------------------- |
-| `crates/zone-geometry` | Cluster geometry, independent of the game                   |
-| `crates/keen-reflect`  | Engine reflection and system records read from a game image |
-| `crates/loader`        | The proxy DLL, the build table and the hooks                |
-
-Keen's binaries, decompiled code and data dumps never enter the repository.
-`BRIEF.md` holds the design and the engine facts.
+Building from source, the code layout, supporting a new game build and making a
+release are in [CONTRIBUTING.md](CONTRIBUTING.md). Report security issues as
+[SECURITY.md](SECURITY.md) describes.
 
 ## Legal
 
@@ -97,8 +87,7 @@ at runtime to interoperate with it and contains none of Keen's code, data or
 assets.
 
 Keen's terms of use for Enshrouded (status 29.06.2026, § 3.3 f) forbid creating
-or using mods. Installing these mods is your decision and your risk. They change
-building only: combat, loot, experience and enemies stay vanilla.
+or using mods. Installing these mods is your decision and your risk.
 
 ## Acknowledgements
 
@@ -109,13 +98,5 @@ through the [`minhook`](https://crates.io/crates/minhook) crate.
 
 ## Licence
 
-MIT, see `LICENSE`. `THIRD-PARTY-NOTICES.md` lists the third-party code in the
-released DLL.
-
-## Releasing
-
-1. Set `version` in `crates/loader/Cargo.toml`.
-2. Commit, then tag and push:
-   `git tag v<version> && git push origin v<version>`.
-3. The `Release` workflow tests, builds and publishes `ensh-mods-v<version>.zip`
-   with `SHA256SUMS`.
+MIT, see [LICENSE](LICENSE). [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md)
+lists the third-party code in the released DLL.
