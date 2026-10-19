@@ -5,6 +5,8 @@ use windows_sys::Win32::System::LibraryLoader::GetModuleHandleW;
 
 use crate::{info, warn};
 
+const CLIENT_HOOK_DELAY: std::time::Duration = std::time::Duration::from_secs(15);
+
 pub(crate) fn start(forwarded: Option<usize>) {
     let exe = std::env::current_exe().unwrap_or_default();
     if let Some(dir) = exe.parent() {
@@ -61,17 +63,41 @@ pub(crate) fn start(forwarded: Option<usize>) {
         }
     }
 
+    let entry = |name: &str| {
+        build
+            .systems
+            .iter()
+            .find(|s| s.0 == name)
+            .map(|s| image.base as usize + s.1 as usize)
+    };
+    let seam = image.base as usize + build.seam_check as usize;
+    let install_seam = move || match crate::seam::install(seam) {
+        Ok(()) => info!("building across seams on"),
+        Err(e) => warn!("building across seams off: {e}"),
+    };
+    if build.role == crate::builds::Role::Client {
+        // The client starts under Steam's DRM wrapper, which may check its
+        // own code first; patch only once the game is running. Placement
+        // checks matter only in game, long after this.
+        std::thread::spawn(move || {
+            std::thread::sleep(CLIENT_HOOK_DELAY);
+            let _ = std::panic::catch_unwind(install_seam);
+        });
+    } else {
+        install_seam();
+    }
+
     if build.role == crate::builds::Role::Server {
-        let entry = image.base as usize
-            + build
-                .systems
-                .iter()
-                .find(|s| s.0 == "add_buildzones_server")
-                .map(|s| s.1)
-                .unwrap_or(0) as usize;
-        match crate::altars::install(build, image.base as usize, entry) {
-            Ok(()) => info!("altar observer installed"),
-            Err(e) => warn!("altar observer off: {e}"),
+        let (Some(upgrade), Some(add_zones)) = (
+            entry("upgrade_building_range"),
+            entry("add_buildzones_server"),
+        ) else {
+            warn!("altar zones off: the build table lacks their systems");
+            return;
+        };
+        match crate::altars::install(build, image.base as usize, upgrade, add_zones) {
+            Ok(()) => info!("altar zones on"),
+            Err(e) => warn!("altar zones off: {e}"),
         }
     }
 }

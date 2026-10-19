@@ -15,8 +15,10 @@ mod hook;
 pub mod log;
 #[cfg(windows)]
 mod proxy;
+pub mod seam;
 #[cfg(windows)]
 mod start;
+pub mod zones;
 
 #[cfg(windows)]
 #[unsafe(no_mangle)]
