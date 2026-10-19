@@ -125,7 +125,9 @@ altar works in game on the server. One slot per survivor and altar; a point
 belongs to the nearest altar among the zones that hold it; the summoning staff
 spawns a copy where the altar has none and moves the altar's copy otherwise;
 a bed serves only its own altar's copy; turning the setting off lets vanilla
-remove the copies safely. Engine facts and addresses: `research/q7`, `q9`,
+remove the copies safely. A modded client lets the staff assign a bed to a
+copy at any altar; checked in game with four copies, each in its own bed.
+Engine facts and addresses: `research/q7`, `q9`,
 `q10` notes (local).
 
 Open:
