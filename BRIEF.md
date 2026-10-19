@@ -222,7 +222,11 @@ Addresses are for this build at the default image base `0x140000000`.
    placed and builds in the new strip. Its placement preview and the altar's
    size text still show vanilla values, read from the client's own data.
 2. Repository skeleton: loader, hook layer, geometry crate, CI.
-3. Cluster model on the server and client, join check, metrics.
+3. Cluster model on the server and client, join check, metrics. The cluster
+   model and the seam check work in game on the test server (2026-10-19):
+   three altars of levels 1 and 2 formed one cluster and grew by 3.5 m, the
+   zone stayed steady, and blocks went down across the seams. Still to do:
+   join check, metrics.
 4. Playtest in a test world, then the live world after a save backup.
 5. Check Keen's EULA before any public release.
 
