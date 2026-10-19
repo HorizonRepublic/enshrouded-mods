@@ -35,7 +35,13 @@ extern "system" fn DllMain(
         // The forwards come first and never depend on the mods: the game
         // calls through them whatever happens below.
         let forwarded = unsafe { proxy::install() };
-        let _ = std::panic::catch_unwind(|| start::start(forwarded));
+        // Everything else runs outside the loader lock, which DllMain holds:
+        // the thread starts once Windows releases it. Resolving and hooking
+        // take a fraction of a second; the first game tick comes seconds
+        // later.
+        let _ = std::thread::Builder::new()
+            .name("ensh-mods".into())
+            .spawn(move || std::panic::catch_unwind(|| start::start(forwarded)));
     }
     1
 }
