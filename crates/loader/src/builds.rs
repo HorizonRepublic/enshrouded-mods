@@ -48,6 +48,10 @@ pub struct Build {
     /// `lookup(bases, &npc) -> entity`: the base system's survivor map; 0 on
     /// the client.
     pub npc_lookup: u64,
+    /// Where the spawn path's survivor lookup returns to.
+    pub npc_spawn_return: u64,
+    /// Where `unique_npc_spawns`'s two survivor lookups return to.
+    pub npc_unique_returns: [u64; 2],
 }
 
 const fn guid(hex: &[u8; 32]) -> [u8; 16] {
@@ -79,6 +83,7 @@ pub const BUILDS: &[Build] = &[
         systems: &[
             ("upgrade_building_range", 0x90a60),
             ("add_buildzones_server", 0xe90e0),
+            ("unique_npc_spawns", 0x1f4780),
         ],
         iterator_init: 0x65b8c0,
         iterator_next: 0x656690,
@@ -89,6 +94,8 @@ pub const BUILDS: &[Build] = &[
         max_altars: 0x931860,
         server_change: 0,
         npc_lookup: 0x202e80,
+        npc_spawn_return: 0x405cb,
+        npc_unique_returns: [0x1f4929, 0x1f499d],
     },
     Build {
         name: "1.0 client (1269579)",
@@ -111,6 +118,8 @@ pub const BUILDS: &[Build] = &[
         max_altars: 0xe7d070,
         server_change: 0x107d200,
         npc_lookup: 0,
+        npc_spawn_return: 0,
+        npc_unique_returns: [0, 0],
     },
 ];
 

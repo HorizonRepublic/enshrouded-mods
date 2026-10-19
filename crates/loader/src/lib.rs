@@ -13,17 +13,19 @@ mod altars;
 pub mod builds;
 pub mod config;
 #[cfg(windows)]
+mod ecs;
+#[cfg(windows)]
 mod hook;
 pub mod join;
 #[cfg(windows)]
 pub mod log;
 #[cfg(windows)]
-mod npc_probe;
-#[cfg(windows)]
 mod proxy;
 pub mod seam;
 #[cfg(windows)]
 mod start;
+#[cfg(windows)]
+mod survivors;
 pub mod zones;
 
 #[cfg(windows)]

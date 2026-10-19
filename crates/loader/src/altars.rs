@@ -21,6 +21,7 @@ use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use zone_geometry::{Altar, clusters};
 
 use crate::builds::{Build, engine};
+use crate::ecs::{entity, row_counter};
 use crate::zones::{self, Placed};
 use crate::{info, warn};
 
@@ -225,27 +226,6 @@ unsafe extern "system" fn upgrade_detour(ctx: *mut u64) {
     }
     let original: System = unsafe { function(&ENGINE.original_upgrade) };
     unsafe { original(ctx) };
-}
-
-unsafe fn row_counter(ctx: *mut u64) -> *mut u32 {
-    unsafe { (ctx as *mut u8).add(engine::CONTEXT_ROW).cast::<u32>() }
-}
-
-/// The entity of the query's current row.
-unsafe fn entity(ctx: *mut u64) -> u32 {
-    unsafe {
-        let row = row_counter(ctx).read();
-        if row == 0 {
-            return 0;
-        }
-        let descriptor = *ctx as *const u8;
-        let records = *descriptor
-            .add(engine::DESCRIPTOR_ENTITY_RECORDS)
-            .cast::<*const u8>();
-        *records
-            .add((row as usize - 1) * engine::ENTITY_RECORD_SIZE)
-            .cast::<u32>()
-    }
 }
 
 unsafe fn read<T: Copy>(at: *const u8) -> T {

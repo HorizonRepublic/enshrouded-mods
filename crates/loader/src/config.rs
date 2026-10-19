@@ -1,7 +1,7 @@
 //! `ensh-mods.toml`, next to the game executable.
 //!
 //! A small subset of TOML: `[section]` headers, `key = value` lines with an
-//! integer or an array of integers, and `#` comments. A file that cannot be
+//! integer, `true` or `false`, or an array of integers, and `#` comments. A file that cannot be
 //! read keeps every default and says why; a bad line keeps that key's
 //! default.
 
@@ -20,6 +20,8 @@ pub struct Config {
     /// Altars allowed at each Flame level, from level 0; levels past the end
     /// use the last entry.
     pub altars_per_flame_level: Vec<u8>,
+    /// Experiment: let a survivor exist more than once. Off by default.
+    pub survivor_duplicates: bool,
 }
 
 impl Default for Config {
@@ -29,6 +31,7 @@ impl Default for Config {
                 .iter()
                 .map(|&n| (n * 2).min(ALTAR_CAP))
                 .collect(),
+            survivor_duplicates: false,
         }
     }
 }
@@ -70,6 +73,9 @@ impl Config {
                         .collect();
                     config.altars_per_flame_level = table;
                 }
+                ("survivors", "experiment_duplicates", Value::Bool(on)) => {
+                    config.survivor_duplicates = on;
+                }
                 (section, key, _) => {
                     problems.push(format!("unknown or malformed [{section}] {key}; ignored"))
                 }
@@ -82,6 +88,7 @@ impl Config {
 #[derive(Debug, PartialEq)]
 enum Value {
     Integer(i64),
+    Bool(bool),
     Array(Vec<i64>),
 }
 
@@ -118,6 +125,8 @@ fn parse_toml(text: &str) -> Result<BTreeMap<(String, String), Value>, String> {
                 .map(str::parse)
                 .collect();
             Value::Array(numbers.map_err(|_| at("arrays hold whole numbers only"))?)
+        } else if value == "true" || value == "false" {
+            Value::Bool(value == "true")
         } else {
             Value::Integer(
                 value
@@ -199,6 +208,18 @@ mod tests {
         let (config, problems) = Config::parse("[other]\nspeed = 3\n");
         assert_eq!(config, Config::default());
         assert_eq!(problems, ["unknown or malformed [other] speed; ignored"]);
+    }
+
+    #[test]
+    fn the_survivor_experiment_is_off_unless_switched_on() {
+        assert!(!Config::default().survivor_duplicates);
+        let (config, problems) = Config::parse(
+            "[survivors]
+experiment_duplicates = true
+",
+        );
+        assert!(config.survivor_duplicates);
+        assert!(problems.is_empty());
     }
 
     #[test]
