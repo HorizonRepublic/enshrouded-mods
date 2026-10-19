@@ -4,6 +4,18 @@ Ideas for the pack, newest first. Each one says where it stands; a mod that
 reaches a release moves to the Mods table in the README and gets a page in
 `docs/mods/`.
 
+## Personal chests
+
+A chest only its owner can open, with its own crafting recipe, for each
+player's own things in a shared base.
+
+Open questions:
+
+- Who owns a chest: whoever crafted it or whoever placed it.
+- What admins can do: open it, or only break it.
+- Whether a Magic chest of this kind feeds nearby workshops for its owner
+  alone.
+
 ## Area loot
 
 Loot from every enemy you killed nearby in one go, as in World of Warcraft: pick
