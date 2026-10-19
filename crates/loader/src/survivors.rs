@@ -325,12 +325,6 @@ unsafe fn bed_owner(
     found: u32,
 ) -> u32 {
     let bed = unsafe { crate::ecs::entity(ctx) };
-    // A bed in an altar's zone belongs to that altar's copy.
-    if let Some(altar) = copies.altar_at(bed_at)
-        && let Some(copy) = copies.slot(npc, altar)
-    {
-        return copy;
-    }
     let read_component: ComponentRead =
         unsafe { std::mem::transmute(COMPONENT_READ.load(Ordering::Acquire)) };
     let distance =
@@ -348,12 +342,22 @@ unsafe fn bed_owner(
             (entity, home, sleeps_in)
         })
         .collect();
+    log_bed_detail(npc, bed, bed_at, copies.altar_at(bed_at), &candidates);
+    // A bed in an altar's zone belongs to that altar's copy.
+    if let Some(altar) = copies.altar_at(bed_at)
+        && let Some(copy) = copies.slot(npc, altar)
+    {
+        return copy;
+    }
     if let Some(&(entity, _, _)) = candidates
         .iter()
         .find(|(_, _, sleeps)| *sleeps == bed && bed != 0)
     {
         return entity;
     }
+    // Never hand a bed to a copy of another altar: it would walk there.
+    let bed_altar = copies.altar_at(bed_at);
+    candidates.retain(|(_, home, _)| copies.altar_at(*home) == bed_altar);
     candidates.sort_by_key(|(entity, home, sleeps)| (*sleeps != 0, distance(home), *entity));
     candidates
         .first()
@@ -362,6 +366,32 @@ unsafe fn bed_owner(
 }
 
 static BED_LOG: AtomicUsize = AtomicUsize::new(0);
+static BED_DETAIL: Mutex<BTreeMap<u32, String>> = Mutex::new(BTreeMap::new());
+
+/// Where a bed is and where each copy lives, whenever that changes.
+fn log_bed_detail(
+    npc: u32,
+    bed: u32,
+    at: [i64; 3],
+    altar: Option<u64>,
+    candidates: &[(u32, [i64; 3], u32)],
+) {
+    let metres = |c: [i64; 3]| c.map(|v| v as f64 / 2.0);
+    let copies: Vec<String> = candidates
+        .iter()
+        .map(|(e, home, sleeps)| format!("{e} home {:?} bed {sleeps}", metres(*home)))
+        .collect();
+    let line = format!(
+        "survivor {npc:#010x}: bed {bed} at {:?} in altar {altar:?}; copies {copies:?}",
+        metres(at)
+    );
+    if let Ok(mut seen) = BED_DETAIL.lock()
+        && seen.get(&bed) != Some(&line)
+    {
+        info!("{line}");
+        seen.insert(bed, line);
+    }
+}
 
 /// The first bed decisions, for testing.
 fn log_bed(npc: u32, bed: u32, owner: u32) {
