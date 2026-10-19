@@ -79,6 +79,12 @@ further and needs runtime hooks.
 More than 16 altars in a world, which needs hooks on the cap in the cursor check
 and on the 16-zone limit in base grouping.
 
+## Dev tools for test servers
+
+Commands for testing on a test server only: give an item, teleport, set the
+Flame level. Comes with the custom summoning staff, which needs a way to hand
+it out before it drops in game.
+
 ## A loader for every modder
 
 The loader and its API standardised for mods by other authors: an SDK crate,
