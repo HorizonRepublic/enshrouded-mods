@@ -1,6 +1,9 @@
 # Changelog
 
-## Unreleased
+## v0.1.1 (2026-10-19)
+
+The repository is public.
+
 
 - MIT licence, third-party notices in the release archive, contribution
   and security guides.
