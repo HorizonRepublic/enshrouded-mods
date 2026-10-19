@@ -52,6 +52,16 @@ pub struct Build {
     pub npc_spawn_return: u64,
     /// Where `unique_npc_spawns`'s two survivor lookups return to.
     pub npc_unique_returns: [u64; 2],
+    /// The second copy of the survivor lookup, used by the cursor check.
+    pub npc_lookup_cursor: u64,
+    /// Where `npc_bed` and `npc_bed_init` lookups return to.
+    pub npc_bed_return: u64,
+    pub npc_bed_init_return: u64,
+    /// Where the cursor check's two lookups return to.
+    pub npc_cursor_returns: [u64; 2],
+    /// `move(behavior_ctx, ...)`: an NPC takes a move command; every copy
+    /// of a survivor runs it for one command.
+    pub npc_move: u64,
 }
 
 const fn guid(hex: &[u8; 32]) -> [u8; 16] {
@@ -83,7 +93,6 @@ pub const BUILDS: &[Build] = &[
         systems: &[
             ("upgrade_building_range", 0x90a60),
             ("add_buildzones_server", 0xe90e0),
-            ("unique_npc_spawns", 0x1f4780),
         ],
         iterator_init: 0x65b8c0,
         iterator_next: 0x656690,
@@ -96,6 +105,11 @@ pub const BUILDS: &[Build] = &[
         npc_lookup: 0x202e80,
         npc_spawn_return: 0x405cb,
         npc_unique_returns: [0x1f4929, 0x1f499d],
+        npc_lookup_cursor: 0x202e30,
+        npc_bed_return: 0x1f29ff,
+        npc_bed_init_return: 0x1f2d76,
+        npc_cursor_returns: [0x99fe8, 0x99ff3],
+        npc_move: 0x1eca40,
     },
     Build {
         name: "1.0 client (1269579)",
@@ -120,6 +134,11 @@ pub const BUILDS: &[Build] = &[
         npc_lookup: 0,
         npc_spawn_return: 0,
         npc_unique_returns: [0, 0],
+        npc_lookup_cursor: 0,
+        npc_bed_return: 0,
+        npc_bed_init_return: 0,
+        npc_cursor_returns: [0, 0],
+        npc_move: 0,
     },
 ];
 

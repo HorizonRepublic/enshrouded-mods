@@ -20,8 +20,8 @@ pub struct Config {
     /// Altars allowed at each Flame level, from level 0; levels past the end
     /// use the last entry.
     pub altars_per_flame_level: Vec<u8>,
-    /// Experiment: let a survivor exist more than once. Off by default.
-    pub survivor_duplicates: bool,
+    /// A copy of each survivor per altar. Off by default while it is tested.
+    pub survivors_per_altar: bool,
 }
 
 impl Default for Config {
@@ -31,7 +31,7 @@ impl Default for Config {
                 .iter()
                 .map(|&n| (n * 2).min(ALTAR_CAP))
                 .collect(),
-            survivor_duplicates: false,
+            survivors_per_altar: false,
         }
     }
 }
@@ -73,8 +73,8 @@ impl Config {
                         .collect();
                     config.altars_per_flame_level = table;
                 }
-                ("survivors", "experiment_duplicates", Value::Bool(on)) => {
-                    config.survivor_duplicates = on;
+                ("survivors", "per_altar", Value::Bool(on)) => {
+                    config.survivors_per_altar = on;
                 }
                 (section, key, _) => {
                     problems.push(format!("unknown or malformed [{section}] {key}; ignored"))
@@ -156,7 +156,13 @@ pub fn default_file() -> String {
          # Altars allowed at each Flame level, from level 0; levels past the end\n\
          # use the last entry. At most {cap}: the game groups only {cap} altar zones\n\
          # into bases. Vanilla: [{vanilla}]\n\
-         altars_per_flame_level = [{table}]\n",
+         altars_per_flame_level = [{table}]\n\
+         \n\
+         [survivors]\n\
+         # Being tested: a copy of each survivor per altar. A summoning staff used in\n\
+         # an altar zone without a copy places a new one there; in a zone with a\n\
+         # copy it moves that copy. Copies only stand in zones, one per altar.\n\
+         per_altar = false\n",
         cap = ALTAR_CAP,
         vanilla = vanilla.join(", "),
         table = table.join(", "),
@@ -211,14 +217,14 @@ mod tests {
     }
 
     #[test]
-    fn the_survivor_experiment_is_off_unless_switched_on() {
-        assert!(!Config::default().survivor_duplicates);
+    fn survivors_per_altar_are_off_unless_switched_on() {
+        assert!(!Config::default().survivors_per_altar);
         let (config, problems) = Config::parse(
             "[survivors]
-experiment_duplicates = true
+per_altar = true
 ",
         );
-        assert!(config.survivor_duplicates);
+        assert!(config.survivors_per_altar);
         assert!(problems.is_empty());
     }
 

@@ -71,7 +71,7 @@ pub(crate) fn start(forwarded: Option<usize>) {
             .map(|s| image.base as usize + s.1 as usize)
     };
     let config = exe.parent().map(load_config).unwrap_or_default();
-    let config_duplicates = config.survivor_duplicates;
+    let config_duplicates = config.survivors_per_altar;
     let seam = image.base as usize + build.seam_check as usize;
     let max_altars = image.base as usize + build.max_altars as usize;
     let server_change = match build.server_change {
@@ -107,12 +107,10 @@ pub(crate) fn start(forwarded: Option<usize>) {
         install_seam();
     }
 
-    if build.npc_lookup != 0
-        && let Some(unique) = entry("unique_npc_spawns")
-    {
-        let duplicates = config_duplicates;
-        match crate::survivors::install(build, image.base as usize, unique, duplicates) {
-            Ok(()) if duplicates => warn!("survivors: EXPERIMENT on, copies are kept"),
+    if build.npc_lookup != 0 {
+        let per_altar = config_duplicates;
+        match crate::survivors::install(build, image.base as usize, per_altar) {
+            Ok(()) if per_altar => info!("survivors per altar on (being tested)"),
             Ok(()) => info!("survivor probe on (read only)"),
             Err(e) => warn!("survivors off: {e}"),
         }

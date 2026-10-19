@@ -462,3 +462,28 @@ fn solve(input: &Input) -> BTreeMap<u32, (usize, [f32; 3])> {
     );
     targets
 }
+
+/// Every altar's zone as the engine builds it now, in whole cells, keyed by
+/// the altar's entity.
+pub(crate) fn zones() -> Vec<(u64, zone_geometry::Box3)> {
+    let ranges: BTreeMap<u32, [f32; 3]> = match BUILT.lock() {
+        Ok(built) => built.iter().map(|(&id, &r)| (id, r)).collect(),
+        Err(_) => return Vec::new(),
+    };
+    let Ok(slot) = STATE.lock() else {
+        return Vec::new();
+    };
+    let Some(state) = slot.as_ref() else {
+        return Vec::new();
+    };
+    state
+        .placed
+        .iter()
+        .filter_map(|(&id, placed)| {
+            let range = *ranges.get(&id)?;
+            let turn = zones::turn(placed.orientation)?;
+            let centre = zones::centre(placed)?;
+            Some((id as u64, zones::cells(centre, range, turn)))
+        })
+        .collect()
+}
