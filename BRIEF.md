@@ -194,6 +194,13 @@ Addresses are for this build at the default image base `0x140000000`.
 
 - Live server: Linux, Proton, k3s on worker-01, managed from
   HorizonRepublic/hrp-infrastructure. Stays there while it runs well.
+- Proton confirmed 2026-10-19: the live server's image
+  (`mornedhels/enshrouded-server:dev-proton`, same digest) run locally in
+  Docker loads the loader with `WINEDLLOVERRIDES=powrprof=n,b` and grows the
+  same zones as native Windows. Wine's builtin POWRPROF.dll lacks 106 of
+  139 exports, none of them used by the game. The live deployment updates
+  the game every 5 minutes (`UPDATE_CRON`); a new build turns every mod off
+  until it is added to the build table.
 - Windows VPS: planned, separate host, for comparing native Windows against
   Proton on the same metrics.
 - Windows development machine: OpenSSH over Tailscale for builds and
