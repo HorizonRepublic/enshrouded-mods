@@ -36,6 +36,17 @@ type Move = unsafe extern "system" fn(ctx: *mut *mut u64, b: usize, c: usize, d:
 static ORIGINAL_LOOKUP: AtomicUsize = AtomicUsize::new(0);
 static ORIGINAL_CURSOR_LOOKUP: AtomicUsize = AtomicUsize::new(0);
 static ORIGINAL_MOVE: AtomicUsize = AtomicUsize::new(0);
+static ORIGINAL_UPDATE: AtomicUsize = AtomicUsize::new(0);
+
+type Update =
+    unsafe extern "system" fn(bases: *mut u8, npc: *const u32, state: usize, flag: usize) -> usize;
+
+thread_local! {
+    /// Set when the uniqueness pass keeps a copy that is not the record: the
+    /// record update that follows on this thread must not take the copy's
+    /// base and happiness.
+    static SKIP_UPDATE: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
 static ON: AtomicBool = AtomicBool::new(false);
 
 /// Where the spawn path's lookup returns to. The stub compares against it,
@@ -122,6 +133,10 @@ pub(crate) fn install(build: &Build, base: usize, per_altar: bool) -> Result<(),
         let original =
             unsafe { crate::hook::install(at(build.npc_move), move_detour as Move as usize) }?;
         ORIGINAL_MOVE.store(original, Ordering::Release);
+        let original = unsafe {
+            crate::hook::install(at(build.npc_update), update_detour as Update as usize)
+        }?;
+        ORIGINAL_UPDATE.store(original, Ordering::Release);
         ON.store(true, Ordering::Release);
     }
     Ok(())
@@ -226,10 +241,19 @@ unsafe fn resolve(found: u32, npc: u32, caller: usize, frame: usize) -> u32 {
             )
         };
         shared.seen.insert(me, Instant::now());
+        // Right after a load the zones are not known yet: keep every copy
+        // until they are, or each would look like one outside the zones.
+        if !copies.knows_altars() {
+            SKIP_UPDATE.with(|skip| skip.set(found != 0 && me != found));
+            return if found == 0 { 0 } else { me };
+        }
         let original = if found != 0 { found } else { me };
         return match copies.observe(npc, me, home, original) {
             Verdict::Keep if found == 0 => 0,
-            Verdict::Keep => me,
+            Verdict::Keep => {
+                SKIP_UPDATE.with(|skip| skip.set(me != found));
+                me
+            }
             Verdict::Remove => {
                 let holder = copies.at(npc, home, original);
                 info!("survivor {npc:#010x}: copy {me} removed, {holder} keeps the slot");
@@ -364,6 +388,21 @@ fn cells_fixed(position: [i64; 3]) -> [i64; 3] {
 
 unsafe fn read<T: Copy>(at: usize) -> T {
     unsafe { (at as *const T).read_unaligned() }
+}
+
+/// Keeps the survivor record on the original: skips the update right after
+/// the uniqueness pass kept a copy.
+unsafe extern "system" fn update_detour(
+    bases: *mut u8,
+    npc: *const u32,
+    state: usize,
+    flag: usize,
+) -> usize {
+    if SKIP_UPDATE.with(|skip| skip.replace(false)) {
+        return 0;
+    }
+    let original: Update = unsafe { std::mem::transmute(ORIGINAL_UPDATE.load(Ordering::Acquire)) };
+    unsafe { original(bases, npc, state, flag) }
 }
 
 /// Lets only the copy a summoning staff moves take the move command.

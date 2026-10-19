@@ -32,6 +32,8 @@ pub struct Copies {
     /// The altars' zones, as the altar mod grows them.
     altars: Vec<(AltarKey, Box3)>,
     slots: BTreeMap<(Survivor, AltarKey), Entity>,
+    /// Each kept entity's survivor and home.
+    homes: BTreeMap<Entity, (Survivor, [i64; 3])>,
 }
 
 impl Copies {
@@ -67,11 +69,21 @@ impl Copies {
         }
     }
 
-    /// The copy that belongs where `point` is, for a bed or an order there;
-    /// the original when no copy is there.
+    /// The copy a bed or an order at `point` belongs to: the copy whose home
+    /// is nearest, so a bed and its sleeper agree even where zones overlap;
+    /// the original outside every zone.
     pub fn at(&self, survivor: Survivor, point: [i64; 3], original: Entity) -> Entity {
-        self.altar_at(point)
-            .and_then(|altar| self.slots.get(&(survivor, altar)).copied())
+        if self.altar_at(point).is_none() {
+            return original;
+        }
+        let distance = |home: &[i64; 3]| -> i128 {
+            (0..3).map(|a| ((home[a] - point[a]) as i128).pow(2)).sum()
+        };
+        self.homes
+            .iter()
+            .filter(|(_, (s, _))| *s == survivor)
+            .min_by_key(|(e, (_, home))| (distance(home), **e))
+            .map(|(e, _)| *e)
             .unwrap_or(original)
     }
 
@@ -86,15 +98,16 @@ impl Copies {
         original: Entity,
     ) -> Verdict {
         let altar = self.altar_at(home);
+        self.homes.insert(entity, (survivor, home));
         // A copy moved away keeps no slot behind it.
         self.slots
             .retain(|(s, a), e| !(*s == survivor && *e == entity && Some(*a) != altar));
         let Some(altar) = altar else {
-            return if entity == original || original == 0 {
-                Verdict::Keep
-            } else {
-                Verdict::Remove
-            };
+            if entity == original || original == 0 {
+                return Verdict::Keep;
+            }
+            self.homes.remove(&entity);
+            return Verdict::Remove;
         };
         match self.slots.get(&(survivor, altar)) {
             None => {
@@ -107,13 +120,22 @@ impl Copies {
                 self.slots.insert((survivor, altar), entity);
                 Verdict::Keep
             }
-            Some(_) => Verdict::Remove,
+            Some(_) => {
+                self.homes.remove(&entity);
+                Verdict::Remove
+            }
         }
     }
 
     /// Forgets an entity the game destroyed.
     pub fn forget(&mut self, entity: Entity) {
         self.slots.retain(|_, e| *e != entity);
+        self.homes.remove(&entity);
+    }
+
+    /// Whether any altar zone is known yet.
+    pub fn knows_altars(&self) -> bool {
+        !self.altars.is_empty()
     }
 
     /// How many copies of `survivor` stand in the zones.
@@ -195,6 +217,21 @@ mod tests {
         assert_eq!(copies.at(SMITH, [100, 10, 10], 10), 11);
         assert_eq!(copies.at(SMITH, [20, 10, 10], 10), 10);
         assert_eq!(copies.at(SMITH, [900, 10, 10], 10), 10);
+    }
+
+    #[test]
+    fn where_zones_overlap_a_bed_belongs_to_the_nearest_copy() {
+        let mut copies = Copies::default();
+        let (a, b) = (
+            Box3::new([0, 0, 0], [80, 80, 80]),
+            Box3::new([40, 0, 0], [120, 80, 80]),
+        );
+        copies.set_altars([(1, a), (2, b)]);
+        copies.observe(SMITH, 10, [45, 10, 10], 10);
+        copies.observe(SMITH, 11, [110, 10, 10], 10);
+        // In both zones, nearer the original's home: the original's bed.
+        assert_eq!(copies.at(SMITH, [50, 10, 10], 10), 10);
+        assert_eq!(copies.at(SMITH, [100, 10, 10], 10), 11);
     }
 
     #[test]
