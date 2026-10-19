@@ -6,6 +6,12 @@
 //! `catch_unwind`, and a step that fails disables its feature and logs why.
 
 #[cfg(windows)]
+mod altars;
+#[cfg(windows)]
+mod builds;
+#[cfg(windows)]
+mod hook;
+#[cfg(windows)]
 pub mod log;
 #[cfg(windows)]
 mod proxy;

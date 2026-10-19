@@ -38,14 +38,40 @@ pub(crate) fn start(forwarded: Option<usize>) {
         reflection.type_count(),
         reflection.system_count()
     );
-    for system in [
-        "upgrade_building_range",
-        "add_buildzones_server",
-        "add_buildzones_client",
-    ] {
-        match reflection.system(system) {
-            Ok(s) => info!("system {system} at {:#x}", s.entry),
-            Err(e) => warn!("system {e}"),
+
+    let Some(build) = crate::builds::find(image.fingerprint) else {
+        warn!("unknown game build; every mod stays off");
+        return;
+    };
+    info!("known build: {}", build.name);
+    for &(name, rva) in build.systems {
+        match reflection.system(name) {
+            Ok(s) if s.entry == image.base + rva => {}
+            Ok(s) => {
+                warn!(
+                    "{name} is at {:#x}, the build table says {rva:#x}; every mod stays off",
+                    s.entry - image.base
+                );
+                return;
+            }
+            Err(e) => {
+                warn!("{e}; every mod stays off");
+                return;
+            }
+        }
+    }
+
+    if build.role == crate::builds::Role::Server {
+        let entry = image.base as usize
+            + build
+                .systems
+                .iter()
+                .find(|s| s.0 == "add_buildzones_server")
+                .map(|s| s.1)
+                .unwrap_or(0) as usize;
+        match crate::altars::install(build, image.base as usize, entry) {
+            Ok(()) => info!("altar observer installed"),
+            Err(e) => warn!("altar observer off: {e}"),
         }
     }
 }

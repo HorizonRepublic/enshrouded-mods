@@ -325,6 +325,7 @@ name = "loader"
 version = "0.1.0"
 dependencies = [
  "keen-reflect",
+ "minhook",
  "windows-sys 0.59.0",
  "zone-geometry",
 ]
