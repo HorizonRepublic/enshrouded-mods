@@ -72,6 +72,8 @@ pub(crate) fn start(forwarded: Option<usize>) {
     };
     let config = exe.parent().map(load_config).unwrap_or_default();
     let config_duplicates = config.survivors_per_altar;
+    let per_altar_client = config_duplicates && build.role == crate::builds::Role::Client;
+    let image_base = image.base as usize;
     let seam = image.base as usize + build.seam_check as usize;
     let max_altars = image.base as usize + build.max_altars as usize;
     let server_change = match build.server_change {
@@ -87,6 +89,12 @@ pub(crate) fn start(forwarded: Option<usize>) {
             match crate::join::install(server_change) {
                 Ok(()) => info!("join check on"),
                 Err(e) => warn!("join check off: {e}"),
+            }
+        }
+        if per_altar_client {
+            match crate::survivors::install_client(build, image_base) {
+                Ok(()) => info!("survivors per altar on (client cursor)"),
+                Err(e) => warn!("survivors per altar off on the client: {e}"),
             }
         }
         let table = config.altars_per_flame_level.clone();

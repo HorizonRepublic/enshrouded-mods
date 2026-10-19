@@ -77,8 +77,8 @@ struct Shared {
     /// When the uniqueness pass last saw each copy.
     seen: BTreeMap<u32, Instant>,
     refreshed: Option<Instant>,
-    /// The copy a summoning staff is moving, and since when.
-    moving: Option<(u32, Instant)>,
+    /// The survivor and copy a summoning staff is moving, and since when.
+    moving: Option<(u32, u32, Instant)>,
 }
 
 static SHARED: Mutex<Option<Shared>> = Mutex::new(None);
@@ -86,6 +86,8 @@ static SHARED: Mutex<Option<Shared>> = Mutex::new(None);
 const REFRESH: Duration = Duration::from_secs(2);
 const FORGET_AFTER: Duration = Duration::from_secs(3);
 const MOVE_WINDOW: Duration = Duration::from_secs(2);
+/// The move system's context points at the NPC's survivor id at 0x450.
+const MOVE_SURVIVOR: usize = 0x450;
 
 /// Caller frames, from the caller's stack pointer at the call.
 const UNIQUE_CONTEXT: usize = 0x38;
@@ -169,6 +171,38 @@ unsafe extern "system" fn cursor_entry(_bases: *mut u8, _npc: *const u32) -> u32
     core::arch::naked_asm!("mov r8, [rsp]", "lea r9, [rsp + 8]", "jmp {inner}", inner = sym cursor_lookup);
 }
 
+/// The client: its cursor check measures from the first copy of a survivor
+/// it knows, often one at another altar, and refuses with "too far"; tell
+/// it no copy exists, as the server does.
+pub(crate) fn install_client(build: &Build, base: usize) -> Result<(), String> {
+    CLIENT_CURSOR_RETURN.store(
+        base + build.npc_cursor_returns[0] as usize,
+        Ordering::Release,
+    );
+    let target = base + build.npc_lookup_cursor as usize;
+    let original = unsafe { crate::hook::install(target, client_cursor_entry as Lookup as usize) }?;
+    ORIGINAL_CURSOR_LOOKUP.store(original, Ordering::Release);
+    Ok(())
+}
+
+static CLIENT_CURSOR_RETURN: AtomicUsize = AtomicUsize::new(0);
+
+#[unsafe(naked)]
+unsafe extern "system" fn client_cursor_entry(_bases: *mut u8, _npc: *const u32) -> u32 {
+    core::arch::naked_asm!("mov r8, [rsp]", "jmp {inner}", inner = sym client_cursor_lookup);
+}
+
+unsafe extern "system" fn client_cursor_lookup(
+    bases: *mut u8,
+    npc: *const u32,
+    caller: usize,
+) -> u32 {
+    if caller == CLIENT_CURSOR_RETURN.load(Ordering::Acquire) {
+        return 0;
+    }
+    unsafe { original(&ORIGINAL_CURSOR_LOOKUP)(bases, npc) }
+}
+
 unsafe fn original(slot: &AtomicUsize) -> Lookup {
     unsafe { std::mem::transmute(slot.load(Ordering::Acquire)) }
 }
@@ -244,6 +278,7 @@ unsafe fn resolve(found: u32, npc: u32, caller: usize, frame: usize) -> u32 {
                 read(frame + UNIQUE_TRANSFORM),
             )
         };
+        SKIP_UPDATE.with(|skip| skip.set(false));
         shared.seen.insert(me, Instant::now());
         // Right after a load the zones are not known yet: keep every copy
         // until they are, or each would look like one outside the zones.
@@ -269,7 +304,7 @@ unsafe fn resolve(found: u32, npc: u32, caller: usize, frame: usize) -> u32 {
         let target = unsafe { cells_fixed(read(frame + SPAWN_TARGET)) };
         return match copies.for_spawn(npc, target, found) {
             Some(copy) => {
-                shared.moving = Some((copy, Instant::now()));
+                shared.moving = Some((npc, copy, Instant::now()));
                 copy
             }
             None => {
@@ -288,6 +323,7 @@ unsafe fn resolve(found: u32, npc: u32, caller: usize, frame: usize) -> u32 {
         let ctx: *mut u64 = unsafe { read(frame + BED_CONTEXT) };
         let position = unsafe { cells_fixed(read(read::<usize>(frame + BED_TRANSFORM))) };
         let kind = unsafe { read::<u16>(read::<usize>(frame + BED_NPC_COMMON_TYPE)) };
+        NPC_COMMON_TYPE.store(kind, Ordering::Release);
         let answer = unsafe { bed_owner(copies, npc, ctx, kind, position, found) };
         log_bed(npc, unsafe { crate::ecs::entity(ctx) }, answer);
         return answer;
@@ -306,10 +342,22 @@ unsafe fn resolve(found: u32, npc: u32, caller: usize, frame: usize) -> u32 {
                 (ctx, crate::ecs::entity(ctx))
             }
         };
-        return match unsafe { position_of(ctx, entity) } {
-            Some(position) => copies.at(npc, position, found),
-            None => found,
+        let Some(position) = (unsafe { position_of(ctx, entity) }) else {
+            return found;
         };
+        if roaming {
+            return copies.at(npc, position, found);
+        }
+        if caller == returns.assign[0] {
+            let answer = copies
+                .altar_at(position)
+                .and_then(|a| copies.slot(npc, a))
+                .unwrap_or(0);
+            info!("survivor {npc:#010x}: staff gives bed {entity} to {answer}");
+            return answer;
+        }
+        // The previous occupant: the copy that really sleeps in this bed.
+        return unsafe { sleeper(copies, npc, ctx, entity) }.unwrap_or(0);
     }
     0
 }
@@ -327,9 +375,7 @@ unsafe fn bed_owner(
     let bed = unsafe { crate::ecs::entity(ctx) };
     let read_component: ComponentRead =
         unsafe { std::mem::transmute(COMPONENT_READ.load(Ordering::Acquire)) };
-    let distance =
-        |home: &[i64; 3]| -> i128 { (0..3).map(|a| ((home[a] - bed_at[a]) as i128).pow(2)).sum() };
-    let mut candidates: Vec<(u32, [i64; 3], u32)> = copies
+    let candidates: Vec<(u32, [i64; 3], u32)> = copies
         .copies_of(npc)
         .into_iter()
         .map(|(entity, home)| {
@@ -343,26 +389,12 @@ unsafe fn bed_owner(
         })
         .collect();
     log_bed_detail(npc, bed, bed_at, copies.altar_at(bed_at), &candidates);
-    // A bed in an altar's zone belongs to that altar's copy.
-    if let Some(altar) = copies.altar_at(bed_at)
-        && let Some(copy) = copies.slot(npc, altar)
-    {
-        return copy;
-    }
-    if let Some(&(entity, _, _)) = candidates
-        .iter()
-        .find(|(_, _, sleeps)| *sleeps == bed && bed != 0)
-    {
-        return entity;
-    }
-    // Never hand a bed to a copy of another altar: it would walk there.
-    let bed_altar = copies.altar_at(bed_at);
-    candidates.retain(|(_, home, _)| copies.altar_at(*home) == bed_altar);
-    candidates.sort_by_key(|(entity, home, sleeps)| (*sleeps != 0, distance(home), *entity));
-    candidates
-        .first()
-        .map(|(entity, _, _)| *entity)
-        .unwrap_or(found)
+    // A bed serves its own altar's copy, or nobody: a copy of another altar
+    // would walk across the base to it.
+    let Some(altar) = copies.altar_at(bed_at) else {
+        return found;
+    };
+    copies.slot(npc, altar).unwrap_or(0)
 }
 
 static BED_LOG: AtomicUsize = AtomicUsize::new(0);
@@ -398,6 +430,27 @@ fn log_bed(npc: u32, bed: u32, owner: u32) {
     if BED_LOG.fetch_add(1, Ordering::Relaxed) < 40 {
         info!("survivor {npc:#010x}: bed {bed} goes to {owner}");
     }
+}
+
+/// The type index of `NpcCommon`, read from `npc_bed`'s iterator.
+static NPC_COMMON_TYPE: std::sync::atomic::AtomicU16 = std::sync::atomic::AtomicU16::new(u16::MAX);
+
+/// The copy of `npc` whose `NpcCommon.bedId` is `bed`.
+unsafe fn sleeper(copies: &Copies, npc: u32, ctx: *mut u64, bed: u32) -> Option<u32> {
+    let kind = NPC_COMMON_TYPE.load(Ordering::Acquire);
+    if kind == u16::MAX || bed == 0 {
+        return None;
+    }
+    let read_component: ComponentRead =
+        unsafe { std::mem::transmute(COMPONENT_READ.load(Ordering::Acquire)) };
+    copies
+        .copies_of(npc)
+        .into_iter()
+        .map(|(e, _)| e)
+        .find(|&e| {
+            let common = unsafe { read_component(ctx, &kind, e) };
+            !common.is_null() && unsafe { read::<u32>(common as usize + NPC_COMMON_BED) } == bed
+        })
 }
 
 /// Learns the type index of `CurrentTransform` from a bed whose transform
@@ -448,7 +501,10 @@ fn refresh(shared: &mut Shared) {
         return;
     }
     shared.refreshed = Some(Instant::now());
-    shared.copies.set_altars(crate::altars::zones());
+    let zones = crate::altars::zones();
+    if !zones.is_empty() {
+        shared.copies.set_altars(zones);
+    }
     let gone: Vec<u32> = shared
         .seen
         .iter()
@@ -503,20 +559,37 @@ unsafe extern "system" fn update_detour(
 unsafe extern "system" fn move_detour(ctx: *mut *mut u64, b: usize, c: usize, d: usize) -> usize {
     let original: Move = unsafe { std::mem::transmute(ORIGINAL_MOVE.load(Ordering::Acquire)) };
     if ON.load(Ordering::Acquire) && !ctx.is_null() {
-        let target = SHARED
-            .lock()
-            .ok()
-            .and_then(|s| s.as_ref()?.moving)
-            .filter(|(_, at)| at.elapsed() < MOVE_WINDOW)
-            .map(|(copy, _)| copy);
-        if let Some(target) = target {
-            let me = unsafe { crate::ecs::entity(*ctx) };
-            if me != 0 && me != target {
-                return 0;
-            }
+        let skip = std::panic::catch_unwind(|| unsafe { skip_move(ctx) }).unwrap_or(false);
+        if skip {
+            return 0;
         }
     }
     unsafe { original(ctx, b, c, d) }
+}
+
+/// Whether this NPC is another copy of the survivor a staff is moving.
+unsafe fn skip_move(ctx: *mut *mut u64) -> bool {
+    let Ok(mut slot) = SHARED.lock() else {
+        return false;
+    };
+    let Some(shared) = slot.as_mut() else {
+        return false;
+    };
+    let Some((survivor, target, at)) = shared.moving else {
+        return false;
+    };
+    if at.elapsed() > MOVE_WINDOW {
+        shared.moving = None;
+        return false;
+    }
+    let me = unsafe { crate::ecs::entity(*ctx) };
+    // The NPC's survivor id, through its ActiveNpcState.
+    let id = unsafe { read::<u32>(read::<usize>(ctx as usize + MOVE_SURVIVOR)) };
+    if me == target {
+        shared.moving = None;
+        return false;
+    }
+    id == survivor
 }
 
 mod probe {
