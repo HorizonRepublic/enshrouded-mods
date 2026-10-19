@@ -4,7 +4,6 @@
 
 The repository is public.
 
-
 - MIT licence, third-party notices in the release archive, contribution
   and security guides.
 
