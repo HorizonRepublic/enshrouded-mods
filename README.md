@@ -23,8 +23,22 @@ covers that part. To remove the mods, delete `powrprof.dll`.
 | Mod                                                 | What changes in game                                                                                                                 |
 | --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
 | [Flame altar zones](docs/mods/flame-altar-zones.md) | Altars placed close together form one base whose zones overlap without losing area, and you can build across the seams between them. |
+| [Flame altar count](docs/mods/flame-altar-count.md) | Each Flame level allows more altars, twice vanilla by default, set in `ensh-mods.toml`.                                              |
 
 Every mod in the pack is on as soon as the file is in place.
+
+## Settings
+
+On first start the mods write `ensh-mods.toml` next to the game or server
+executable, with the defaults and a comment on each setting. Change it, then
+restart. Players need the same file as the server.
+
+| Setting                                 | Default                                                               |
+| --------------------------------------- | --------------------------------------------------------------------- |
+| `[flame_altars] altars_per_flame_level` | Twice vanilla, up to 16: `[2, 4, 8, 12, 16, …]` by Flame level from 0 |
+
+The game groups at most 16 altar zones into bases, so the mods lower higher
+values to 16.
 
 ## Compatibility
 

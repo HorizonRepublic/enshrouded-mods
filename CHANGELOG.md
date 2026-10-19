@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- Flame altar count: the altars each Flame level allows come from
+  `ensh-mods.toml`, twice vanilla by default, up to 16.
+- `ensh-mods.toml` next to the executable, written with defaults and comments
+  on first start.
+
 ## v0.1.1 (2026-10-19)
 
 The repository is public.

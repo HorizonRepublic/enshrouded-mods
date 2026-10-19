@@ -39,6 +39,9 @@ pub(crate) struct Build {
     /// `seam(zones, corners, margin) -> bool`: both corners of an object in
     /// one zone.
     pub seam_check: u64,
+    /// `max_altars(balancing, flame_level) -> u8`: altars allowed at a Flame
+    /// level, capped at 16.
+    pub max_altars: u64,
 }
 
 const fn guid(hex: &[u8; 32]) -> [u8; 16] {
@@ -77,6 +80,7 @@ pub(crate) const BUILDS: &[Build] = &[
         zone_size: 0x927560,
         mark_changed: 0x666a90,
         seam_check: 0x93e210,
+        max_altars: 0x931860,
     },
     Build {
         name: "1.0 client (1269579)",
@@ -96,6 +100,7 @@ pub(crate) const BUILDS: &[Build] = &[
         zone_size: 0xe72e50,
         mark_changed: 0x9c5df0,
         seam_check: 0xe899f0,
+        max_altars: 0xe7d070,
     },
 ];
 

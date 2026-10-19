@@ -70,10 +70,19 @@ pub(crate) fn start(forwarded: Option<usize>) {
             .find(|s| s.0 == name)
             .map(|s| image.base as usize + s.1 as usize)
     };
+    let config = exe.parent().map(load_config).unwrap_or_default();
     let seam = image.base as usize + build.seam_check as usize;
-    let install_seam = move || match crate::seam::install(seam) {
-        Ok(()) => info!("building across seams on"),
-        Err(e) => warn!("building across seams off: {e}"),
+    let max_altars = image.base as usize + build.max_altars as usize;
+    let install_seam = move || {
+        match crate::seam::install(seam) {
+            Ok(()) => info!("building across seams on"),
+            Err(e) => warn!("building across seams off: {e}"),
+        }
+        let table = config.altars_per_flame_level.clone();
+        match crate::altar_count::install(max_altars, config) {
+            Ok(()) => info!("altar count on: {table:?} by Flame level"),
+            Err(e) => warn!("altar count off: {e}"),
+        }
     };
     if build.role == crate::builds::Role::Client {
         // The client starts under Steam's DRM wrapper, which may check its
@@ -98,6 +107,33 @@ pub(crate) fn start(forwarded: Option<usize>) {
         match crate::altars::install(build, image.base as usize, upgrade, add_zones) {
             Ok(()) => info!("altar zones on"),
             Err(e) => warn!("altar zones off: {e}"),
+        }
+    }
+}
+
+/// Reads `ensh-mods.toml` beside the executable, writing the defaults when
+/// there is none.
+fn load_config(dir: &std::path::Path) -> crate::config::Config {
+    use crate::config::{Config, FILE_NAME, default_file};
+    let path = dir.join(FILE_NAME);
+    match std::fs::read_to_string(&path) {
+        Ok(text) => {
+            let (config, problems) = Config::parse(&text);
+            for problem in problems {
+                warn!("{FILE_NAME}: {problem}");
+            }
+            config
+        }
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+            match std::fs::write(&path, default_file()) {
+                Ok(()) => info!("wrote the default {FILE_NAME}"),
+                Err(e) => warn!("cannot write {}: {e}; using the defaults", path.display()),
+            }
+            Config::default()
+        }
+        Err(e) => {
+            warn!("cannot read {}: {e}; using the defaults", path.display());
+            Config::default()
         }
     }
 }

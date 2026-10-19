@@ -6,9 +6,12 @@
 //! `catch_unwind`, and a step that fails disables its feature and logs why.
 
 #[cfg(windows)]
+mod altar_count;
+#[cfg(windows)]
 mod altars;
 #[cfg(windows)]
 mod builds;
+pub mod config;
 #[cfg(windows)]
 mod hook;
 #[cfg(windows)]
