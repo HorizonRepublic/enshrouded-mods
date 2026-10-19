@@ -62,12 +62,68 @@ static ENGINE: Engine = Engine {
 /// Set once anything goes wrong; from then on both hooks run vanilla.
 static OFF: AtomicBool = AtomicBool::new(false);
 
+/// How long an altar stays known after a pass last saw it. The engine runs
+/// a system once per batch of entities, several times a tick, so no single
+/// pass sees every altar; one that no pass has seen for this long is gone.
+const FORGET_AFTER: std::time::Duration = std::time::Duration::from_secs(2);
+
+/// What the passes have seen, merged across batches.
+struct Seen<T> {
+    entries: BTreeMap<u32, (T, std::time::Instant)>,
+}
+
+impl<T: PartialEq> Seen<T> {
+    const fn new() -> Self {
+        Seen {
+            entries: BTreeMap::new(),
+        }
+    }
+
+    /// Records one batch and forgets what nobody saw lately; true when the
+    /// known values changed.
+    fn merge(&mut self, batch: BTreeMap<u32, T>) -> bool {
+        let now = std::time::Instant::now();
+        let mut changed = false;
+        for (id, value) in batch {
+            match self.entries.get_mut(&id) {
+                Some((known, seen)) => {
+                    changed |= *known != value;
+                    *known = value;
+                    *seen = now;
+                }
+                None => {
+                    changed = true;
+                    self.entries.insert(id, (value, now));
+                }
+            }
+        }
+        let before = self.entries.len();
+        self.entries
+            .retain(|_, (_, seen)| now.duration_since(*seen) < FORGET_AFTER);
+        changed || self.entries.len() != before
+    }
+
+    fn get(&self, id: &u32) -> Option<&T> {
+        self.entries.get(id).map(|(value, _)| value)
+    }
+
+    fn iter(&self) -> impl Iterator<Item = (&u32, &T)> {
+        self.entries.iter().map(|(id, (value, _))| (id, value))
+    }
+}
+
+impl<T: PartialEq> Default for Seen<T> {
+    fn default() -> Self {
+        Seen::new()
+    }
+}
+
 /// What the hooks have seen and what the solver produced.
 #[derive(Default)]
 struct State {
-    placed: BTreeMap<u32, Placed>,
+    placed: Seen<Placed>,
     /// Full zone sizes for levels 1 to the current one.
-    levels: BTreeMap<u32, Vec<[f32; 3]>>,
+    levels: Seen<Vec<[f32; 3]>>,
     /// The input the current targets were solved for.
     solved: Option<Input>,
     solving: bool,
@@ -86,7 +142,7 @@ const ZONES_TRANSFORM: usize = 2;
 const ZONES_TRIGGER_SHAPE: usize = 3;
 
 /// The ranges the zones were last built from, for the log only.
-static BUILT: Mutex<BTreeMap<u32, [f32; 3]>> = Mutex::new(BTreeMap::new());
+static BUILT: Mutex<Seen<[f32; 3]>> = Mutex::new(Seen::new());
 /// upgrade_building_range's iterator: context, Level, TriggerShape, two
 /// stamps, entity record, type and flags, tracker, BalancingRegistry,
 /// AttributeRegistry.
@@ -227,17 +283,16 @@ unsafe fn observe(ctx: *mut u64) {
         row.write(saved);
     }
 
-    if let Ok(mut last) = BUILT.lock()
-        && *last != built
+    if let Ok(mut known) = BUILT.lock()
+        && known.merge(built)
     {
-        info!("zones built from ranges {built:?}");
-        *last = built;
+        let all: BTreeMap<_, _> = known.iter().collect();
+        info!("zones built from ranges {all:?}");
     }
 
     let Ok(mut slot) = STATE.lock() else { return };
     let Some(state) = slot.as_mut() else { return };
-    if state.placed != placed {
-        state.placed = placed;
+    if state.placed.merge(placed) {
         maybe_solve(state);
     }
 }
@@ -328,8 +383,7 @@ unsafe fn upgrade(ctx: *mut u64) {
 
     let Ok(mut slot) = STATE.lock() else { return };
     let Some(state) = slot.as_mut() else { return };
-    if state.levels != levels {
-        state.levels = levels;
+    if state.levels.merge(levels) {
         maybe_solve(state);
     }
 }
