@@ -75,10 +75,16 @@ Decided (2026-10-19):
 
 Open:
 
-- Which base an object belongs to when it spans two members' boxes. Each
-  object must belong to exactly one base (storage, water, entity
-  assignment); this needs a deterministic rule and a look at how the engine
-  assigns entities.
+- Adding an altar can shrink a cluster. The new member raises the budget by
+  its own area, but every member grows by k, so the union can overshoot and
+  k drops. A random search found this in about 6% of additions, by 2 to 6
+  cells (1 to 3 m) on every side. Whatever sits in the lost strip falls out
+  of the base, and water and terrain edits there are not saved. Choose
+  between an exact budget and boxes that never shrink when an altar is
+  added; both must stay independent of placement order.
+- More than 16 altars in the world: the engine groups only the first 16
+  zones into bases (see Engine). Until that is hooked, the multiplier must
+  keep the world total at 16 or below.
 - `upgrade_building_range` rewrites `TriggerShape.range*` every tick when it
   differs from the level's size, so a change made from outside is reverted
   on the next tick. The cluster size has to be written by a hook on that
@@ -140,10 +146,24 @@ Addresses are for this build at the default image base `0x140000000`.
   - `0x140099d80`: cursor validation, returns `keen::ecs::CursorFlag`. Altars
     need `CanExtendBase`; `MaxAltarCountReached` compares against
     `altarsPerFlameLevel`, capped at 16 in `0x140931860`.
-- Vanilla has no rule against overlapping altar zones.
-- The save stores per-base zones and water; water is saved with the base's
-  grid size and discarded on a size mismatch at load. Zones must align to
-  the voxel grid.
+- Vanilla has no rule against overlapping altar zones, and it already
+  merges zones that overlap or touch into one base: `0x140926410` collects
+  {altar GUID, box}, `0x1407b0600` sorts by GUID, `0x1401ffb90` groups. Only
+  the first 16 zones are grouped; a 17th zone belongs to no base.
+- Placed objects carry no base id. `BaseIdComponent` is a GUID on altars
+  only, written by `base_id_generator` (`0x1400eb020`). Comfort, crafting,
+  beds and animals find their base every tick by the entity's pivot point
+  (`0x1402022a0`), so nothing is reassigned when zones change. The seam
+  check is the only rule that ties an object to a single altar's box.
+- Zone coordinates are 32.32 fixed point (2^32 per metre). A voxel cell is
+  0.5 m.
+- The save stores one record per altar: GUID, box in whole 0.5 m cells,
+  terrain edits and water (`0x1407b81b0`). Water is saved for the box only
+  and loaded only when its size matches the record's box (`0x1408b9ffe`),
+  which holds unless the box is off the 0.5 m grid. Growing a box keeps its
+  water; shrinking loses whatever falls outside. The save grows with the
+  zones' area: a copy of the live world saved as 190 KB vanilla and 662 KB
+  with every zone doubled in width.
 
 ## Tooling
 
@@ -151,6 +171,9 @@ Addresses are for this build at the default image base `0x140000000`.
   the `.kfc` at process start through a `dbghelp.dll` proxy; data only.
   Known gaps: mod run order is random (PR #21), `dependencies` are not
   enforced, a loader error aborts the process, backup clobbering (PR #22).
+  It patches `enshrouded_server.kfc` on disk and keeps a `.kfc.bak`;
+  removing `dbghelp.dll` does not undo the patch. A vanilla comparison needs
+  a separate, untouched install.
 - Runtime hooks: our own proxy-DLL loader in Rust. Ember
   (zachthedev/enshrouded-ember, MIT) has the right shape but no 1.0 build
   support; ShroudForge has no 1.0 server profile; Shroudtopia is dead. Find
@@ -173,6 +196,10 @@ Addresses are for this build at the default image base `0x140000000`.
   desktop.
 - Test server: a separate instance on a copy of the world, own port and
   password. The live world is untouched until a mod passes there.
+  Running on the Windows development machine outside the repository, in
+  `D:\ensh-test\`: `server\` (EML, query port 15647, a copy of the live
+  world), `server-vanilla\` (never modded, port 15657, for comparisons) and
+  `live-copy\` (the copied save).
 
 ## Roadmap
 
