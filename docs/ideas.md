@@ -4,6 +4,20 @@ Ideas for the pack, newest first. Each one says where it stands; a mod that
 reaches a release moves to the Mods table in the README and gets a page in
 `docs/mods/`.
 
+## Area loot
+
+Loot from every enemy you killed nearby in one go, as in World of Warcraft: pick
+up the drops of one and the drops of the others around come with them. The loot
+itself stays vanilla; only collecting it gets quicker.
+
+Open questions:
+
+- How far around the looted enemy the others count.
+- Whose loot it is when friends fight together: only what the looting player may
+  pick up, as vanilla decides it.
+- How Enshrouded drops loot today (items on the ground, a container on the
+  body), which decides where the hook goes.
+
 ## Shared build camera
 
 A free build camera for every player on the server. A community mod already
