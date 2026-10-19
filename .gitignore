@@ -1,3 +1,6 @@
 # Local reverse-engineering material: the game's binaries, Ghidra projects,
 # decompiled code and data dumps. Keen's code and data never enter the repo.
 /research/
+
+# Build output
+/target/

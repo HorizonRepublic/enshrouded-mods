@@ -51,9 +51,41 @@ The server and every client compute clusters independently from replicated
 altar positions and levels, with the same pure function. A join check refuses
 a client whose mod is missing or a different version, and says why.
 
-Open: uniform growth in all directions (preferred, predictable) versus growth
-only into free space. Show both on diagrams for two and three altars before
-coding.
+Decided (2026-10-19):
+
+- Growth is uniform in all directions, never only into free space.
+- Every altar keeps one world-aligned box, so the engine and the save still
+  see one box per base. Growing the union of boxes by k cells on every side
+  equals growing each box by k cells, so the cluster is exactly the union of
+  its members' boxes, each grown by the same k.
+- k is rounded to the nearest step: with the budget between the areas at k
+  and k + 1, less than half of that step rounds down to k, half or more
+  rounds up to k + 1. The area therefore misses the budget by at most half a
+  step in either direction, and k is never below 0.
+- Each member's height becomes the tallest member's, grown around its own
+  centre; k does not apply to height.
+- Geometry is integer only, in voxel-grid cells. Boxes are half-open, like
+  the engine's point test (`min <= p < max`), so two boxes touch when one's
+  max equals the other's min on an axis and their ranges meet on the other.
+- Clusters of different players merge like any other. Altars are not owned
+  by a player; build rights come from the server's user groups.
+- The altar multiplier is a fixed config value applied to
+  `altarsPerFlameLevel`; the hook on the cap of 16 raises the cap to the
+  multiplied table, so the multiplier also works at the highest levels.
+
+Open:
+
+- Which base an object belongs to when it spans two members' boxes. Each
+  object must belong to exactly one base (storage, water, entity
+  assignment); this needs a deterministic rule and a look at how the engine
+  assigns entities.
+- `upgrade_building_range` rewrites `TriggerShape.range*` every tick when it
+  differs from the level's size, so a change made from outside is reverted
+  on the next tick. The cluster size has to be written by a hook on that
+  system, not set once.
+- The seam check `0x14093e210` tests only two corners. Its replacement must
+  test that the whole box lies in the union of the cluster's boxes: two
+  corners in two different members' boxes do not prove that.
 
 ### Later
 
