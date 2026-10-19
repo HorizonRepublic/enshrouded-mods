@@ -125,6 +125,23 @@ breaks (quests, dialogue, the save), comes before any code.
 
 Rejected: experience and enemy changes.
 
+### Join check and updates
+
+- The server advertises its pack version: Steam name `<name> [ensh-mods
+  <version>]` and the Steam rule `ensh-mods`, set through the flat
+  `ISteamGameServer` API once the server is logged on (done).
+- A modded client reads the rule over A2S_RULES when the game hands it a server
+  change, and shows a message box naming the release to install (done).
+- Next: enforce it through the game's own build check. The client sends a
+  `buildVersion` in its connect message and the server drops a peer whose
+  value differs from its own; swapping both for a pack build number refuses
+  vanilla clients and other versions. Unverified: whether the dedicated server
+  has the check switched on, and what a refused client sees.
+- Updates come from GitHub releases only, never from a game server: a server
+  could otherwise push native code into every player's game. A client that
+  updates itself verifies a minisign signature against a key built into the
+  DLL, renames the loaded DLL aside and asks for a restart.
+
 ## Game facts
 
 Build `1269579|release_1.0|2026-10-16`, dedicated server app 2278520.
