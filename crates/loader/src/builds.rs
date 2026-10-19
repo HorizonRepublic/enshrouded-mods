@@ -77,6 +77,11 @@ pub struct Build {
     /// `valid(ctx) -> bool`: whether an NPC's `bedId` still names a bed bound
     /// to it; on false the caller clears `bedId` and searches again.
     pub npc_bed_check: u64,
+    /// Client: `ui_npc_status`, the system that writes each survivor's status
+    /// into its UI record.
+    pub npc_ui_status: u64,
+    /// Client: `template(ctx)`, the GUID of the iterated entity's template.
+    pub npc_template: u64,
 }
 
 const fn guid(hex: &[u8; 32]) -> [u8; 16] {
@@ -130,6 +135,8 @@ pub const BUILDS: &[Build] = &[
         npc_roaming_return: 0x1f24f8,
         npc_update: 0x2055f0,
         npc_bed_check: 0x1ee250,
+        npc_ui_status: 0,
+        npc_template: 0,
     },
     Build {
         name: "1.0 client (1269579)",
@@ -164,6 +171,8 @@ pub const BUILDS: &[Build] = &[
         npc_roaming_return: 0,
         npc_update: 0,
         npc_bed_check: 0,
+        npc_ui_status: 0x45aae0,
+        npc_template: 0x9b3220,
     },
 ];
 

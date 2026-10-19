@@ -26,6 +26,8 @@ pub mod seam;
 #[cfg(windows)]
 mod start;
 #[cfg(windows)]
+mod survivor_ui;
+#[cfg(windows)]
 mod survivors;
 pub mod zones;
 

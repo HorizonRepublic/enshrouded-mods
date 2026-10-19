@@ -96,6 +96,10 @@ pub(crate) fn start(forwarded: Option<usize>) {
                 Ok(()) => info!("survivors per altar on (client cursor)"),
                 Err(e) => warn!("survivors per altar off on the client: {e}"),
             }
+            match crate::survivor_ui::install(build, image_base) {
+                Ok(()) => info!("survivor status per altar on"),
+                Err(e) => warn!("survivor status per altar off: {e}"),
+            }
         }
         let table = config.altars_per_flame_level.clone();
         match crate::altar_count::install(max_altars, config) {

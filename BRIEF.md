@@ -135,9 +135,10 @@ Engine facts and addresses: `research/q7`, `q9`,
 
 Open:
 
-- The client shows one status per survivor, written by every copy in turn, so
-  "no bed" can show for a copy that sleeps in one (client `ui_npc_status`
-  0x14045aae0). Either combine the copies' bed bits, or show each copy.
+- The client shows one status per survivor, written by every copy in turn
+  (client `ui_npc_status` 0x14045aae0). A modded client now rewrites it after
+  vanilla's pass with the bits every copy has, so a copy without a bed shows
+  "no bed"; not yet checked in game.
 - The custom summoning staff (loot, charges) and dev tools for test servers.
 
 Rejected: enemy changes. Ideas waiting for a turn live in `docs/ideas.md`.
