@@ -47,9 +47,11 @@ Design, the cluster model:
 8. The altar count per Flame level is raised by a configurable multiplier
    (the engine also caps it at 16 in code, see below).
 
-The server and every client compute clusters independently from replicated
-altar positions and levels, with the same pure function. A join check refuses
-a client whose mod is missing or a different version, and says why.
+The server computes clusters and writes each altar's box; clients receive
+the zones the way they receive vanilla ones (confirmed on the test server,
+see Roadmap). The client still needs the mod for the seam check, the altar
+count and the numbers in the UI. A join check refuses a client whose mod is
+missing or a different version, and says why.
 
 Decided (2026-10-19):
 
@@ -205,7 +207,10 @@ Addresses are for this build at the default image base `0x140000000`.
 
 1. Test server and the key experiment: change one altar's `TriggerShape` on
    the test server and check that an unmodded client draws and accepts the
-   new zone.
+   new zone. Done 2026-10-19 with zone widths doubled through EML on the
+   server only: an unmodded client draws the wider zone once the altar is
+   placed and builds in the new strip. Its placement preview and the altar's
+   size text still show vanilla values, read from the client's own data.
 2. Repository skeleton: loader, hook layer, geometry crate, CI.
 3. Cluster model on the server and client, join check, metrics.
 4. Playtest in a test world, then the live world after a save backup.
