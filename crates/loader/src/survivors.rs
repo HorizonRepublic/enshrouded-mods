@@ -43,6 +43,8 @@ static ON: AtomicBool = AtomicBool::new(false);
 static SPAWN_RETURN: AtomicUsize = AtomicUsize::new(0);
 
 struct Returns {
+    assign: [usize; 2],
+    roaming: usize,
     unique: [usize; 2],
     bed: usize,
     bed_init: usize,
@@ -50,6 +52,14 @@ struct Returns {
 }
 
 static RETURNS: OnceLock<Returns> = OnceLock::new();
+
+type ComponentRead =
+    unsafe extern "system" fn(ctx: *mut u64, kind: *const u16, entity: u32) -> *const u8;
+static COMPONENT_READ: AtomicUsize = AtomicUsize::new(0);
+/// The type index of `CurrentTransform`, learned from `npc_bed`, which has
+/// both the bed and its transform; `u16::MAX` until then.
+static TRANSFORM_TYPE: std::sync::atomic::AtomicU16 = std::sync::atomic::AtomicU16::new(u16::MAX);
+const TYPE_SEARCH: u16 = 4096;
 
 struct Shared {
     copies: Copies,
@@ -70,14 +80,24 @@ const MOVE_WINDOW: Duration = Duration::from_secs(2);
 const UNIQUE_CONTEXT: usize = 0x38;
 const UNIQUE_SAVED_STATE: usize = 0x40;
 const UNIQUE_TRANSFORM: usize = 0x48;
+const BED_CONTEXT: usize = 0x40;
 const BED_TRANSFORM: usize = 0x48;
+const ASSIGN_CONTEXT: usize = 0x30;
+/// `player_assign_npc` keeps the player's targets at 0x40; the bed is the
+/// selected target at 0x85c.
+const ASSIGN_TARGETS: usize = 0x40;
+const ASSIGN_BED: usize = 0x85c;
+const ROAMING_CONTEXT: usize = 0x40;
 /// The spawn request: the target transform, position first, at 0x18.
 const SPAWN_TARGET: usize = 0x18;
 
 pub(crate) fn install(build: &Build, base: usize, per_altar: bool) -> Result<(), String> {
     let at = |rva: u64| base + rva as usize;
     SPAWN_RETURN.store(at(build.npc_spawn_return), Ordering::Release);
+    COMPONENT_READ.store(at(build.component_read), Ordering::Release);
     let _ = RETURNS.set(Returns {
+        assign: build.npc_assign_returns.map(at),
+        roaming: at(build.npc_roaming_return),
         unique: build.npc_unique_returns.map(at),
         bed: at(build.npc_bed_return),
         bed_init: at(build.npc_bed_init_return),
@@ -177,8 +197,10 @@ unsafe fn resolve(found: u32, npc: u32, caller: usize, frame: usize) -> u32 {
     let spawn = caller == SPAWN_RETURN.load(Ordering::Acquire);
     let unique = returns.unique.contains(&caller);
     let bed = caller == returns.bed;
+    let assign = returns.assign.contains(&caller);
+    let roaming = caller == returns.roaming;
     let quiet = caller == returns.bed_init || returns.cursor.contains(&caller);
-    if !(spawn || unique || bed || quiet) {
+    if !(spawn || unique || bed || assign || roaming || quiet) {
         return found;
     }
 
@@ -228,6 +250,9 @@ unsafe fn resolve(found: u32, npc: u32, caller: usize, frame: usize) -> u32 {
             }
         };
     }
+    if bed {
+        unsafe { calibrate(read(frame + BED_CONTEXT), read(frame + BED_TRANSFORM)) };
+    }
     if copies.count(npc) <= 1 {
         return found;
     }
@@ -235,7 +260,67 @@ unsafe fn resolve(found: u32, npc: u32, caller: usize, frame: usize) -> u32 {
         let position = unsafe { cells_fixed(read(read::<usize>(frame + BED_TRANSFORM))) };
         return copies.at(npc, position, found);
     }
+    if assign || roaming {
+        // The bed being assigned, or the player setting the range.
+        let (ctx, entity) = unsafe {
+            if assign {
+                let targets: usize = read(frame + ASSIGN_TARGETS);
+                (
+                    read::<*mut u64>(frame + ASSIGN_CONTEXT),
+                    read::<u32>(targets + ASSIGN_BED),
+                )
+            } else {
+                let ctx = read::<*mut u64>(frame + ROAMING_CONTEXT);
+                (ctx, crate::ecs::entity(ctx))
+            }
+        };
+        return match unsafe { position_of(ctx, entity) } {
+            Some(position) => copies.at(npc, position, found),
+            None => found,
+        };
+    }
     0
+}
+
+/// Learns the type index of `CurrentTransform` from a bed whose transform
+/// the caller already holds.
+unsafe fn calibrate(bed_ctx: *mut u64, transform: *const u8) {
+    if TRANSFORM_TYPE.load(Ordering::Acquire) != u16::MAX
+        || bed_ctx.is_null()
+        || transform.is_null()
+    {
+        return;
+    }
+    let read_component: ComponentRead =
+        unsafe { std::mem::transmute(COMPONENT_READ.load(Ordering::Acquire)) };
+    let bed = unsafe { crate::ecs::entity(bed_ctx) };
+    if bed == 0 {
+        return;
+    }
+    for kind in 0..TYPE_SEARCH {
+        if unsafe { read_component(bed_ctx, &kind, bed) } == transform {
+            TRANSFORM_TYPE.store(kind, Ordering::Release);
+            info!("CurrentTransform is component type {kind}");
+            return;
+        }
+    }
+}
+
+/// Where an entity stands, in whole cells, once the transform type is known.
+unsafe fn position_of(ctx: *mut u64, entity: u32) -> Option<[i64; 3]> {
+    let kind = TRANSFORM_TYPE.load(Ordering::Acquire);
+    if kind == u16::MAX || ctx.is_null() || entity == 0 {
+        return None;
+    }
+    let read_component: ComponentRead =
+        unsafe { std::mem::transmute(COMPONENT_READ.load(Ordering::Acquire)) };
+    let transform = unsafe { read_component(ctx, &kind, entity) };
+    if transform.is_null() {
+        return None;
+    }
+    Some(cells_fixed(unsafe {
+        transform.cast::<[i64; 3]>().read_unaligned()
+    }))
 }
 
 /// Altars move only when someone builds; read their zones now and then, and

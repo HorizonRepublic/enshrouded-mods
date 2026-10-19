@@ -62,6 +62,15 @@ pub struct Build {
     /// `move(behavior_ctx, ...)`: an NPC takes a move command; every copy
     /// of a survivor runs it for one command.
     pub npc_move: u64,
+    /// `component(ctx, &type, entity) -> pointer`: any component of any
+    /// entity, read only.
+    pub component_read: u64,
+    /// Where `player_assign_npc`'s two lookups return to: the survivor that
+    /// gets the bed, then the bed's previous occupant.
+    pub npc_assign_returns: [u64; 2],
+    /// Where `npc_active_input`'s lookup, which sets the roaming range,
+    /// returns to.
+    pub npc_roaming_return: u64,
 }
 
 const fn guid(hex: &[u8; 32]) -> [u8; 16] {
@@ -110,6 +119,9 @@ pub const BUILDS: &[Build] = &[
         npc_bed_init_return: 0x1f2d76,
         npc_cursor_returns: [0x99fe8, 0x99ff3],
         npc_move: 0x1eca40,
+        component_read: 0x346c0,
+        npc_assign_returns: [0xbf541, 0xbf5e4],
+        npc_roaming_return: 0x1f24f8,
     },
     Build {
         name: "1.0 client (1269579)",
@@ -139,6 +151,9 @@ pub const BUILDS: &[Build] = &[
         npc_bed_init_return: 0,
         npc_cursor_returns: [0, 0],
         npc_move: 0,
+        component_read: 0,
+        npc_assign_returns: [0, 0],
+        npc_roaming_return: 0,
     },
 ];
 
