@@ -8,7 +8,7 @@ reaches a release moves to the Mods table in the README and gets a page in
 
 Loot from every enemy you killed nearby in one go, as in World of Warcraft: pick
 up the drops of one and the drops of the others around come with them. The loot
-itself stays vanilla; only collecting it gets quicker.
+itself stays vanilla. Only collecting it gets quicker.
 
 Open questions:
 
