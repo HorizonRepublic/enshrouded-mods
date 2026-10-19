@@ -120,8 +120,22 @@ vanilla keeps each survivor once in the world, bound to one bed.
 - Placing a copy costs a summoning staff: hard to craft or rare as loot, used up
   on use. The staff comes as a second step, after copies themselves work.
 
-Research on how the engine binds survivors to beds and bases, and what a copy
-breaks (quests, dialogue, the save), comes before any code.
+State (2026-10-19), behind `[survivors] per_altar`, off by default: a copy per
+altar works in game on the server. One slot per survivor and altar; a point
+belongs to the nearest altar among the zones that hold it; the summoning staff
+spawns a copy where the altar has none and moves the altar's copy otherwise;
+a bed serves only its own altar's copy; turning the setting off lets vanilla
+remove the copies safely. Engine facts and addresses: `research/q7`, `q9`,
+`q10` notes (local).
+
+Open:
+
+- The client shows one status per survivor, written by every copy in turn, so
+  "no bed" can show for a copy that sleeps in one (client `ui_npc_status`
+  0x14045aae0). Either combine the copies' bed bits, or show each copy.
+- A stale bed held by a copy of another altar is cleared only when the bed
+  changes; a hook on the bed check 0x1401ee250 would let vanilla clear it.
+- The custom summoning staff (loot, charges) and dev tools for test servers.
 
 Rejected: enemy changes. Ideas waiting for a turn live in `docs/ideas.md`.
 
