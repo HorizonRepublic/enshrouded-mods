@@ -10,14 +10,14 @@
 use keen_reflect::Fingerprint;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(crate) enum Role {
+pub enum Role {
     Server,
     Client,
 }
 
 /// Addresses relative to the image base.
 #[derive(Debug)]
-pub(crate) struct Build {
+pub struct Build {
     pub name: &'static str,
     pub role: Role,
     pub fingerprint: Fingerprint,
@@ -62,7 +62,7 @@ const fn digit(c: u8) -> u8 {
     }
 }
 
-pub(crate) const BUILDS: &[Build] = &[
+pub const BUILDS: &[Build] = &[
     Build {
         name: "1.0 server (1269579)",
         role: Role::Server,
@@ -104,7 +104,7 @@ pub(crate) const BUILDS: &[Build] = &[
     },
 ];
 
-pub(crate) fn find(fingerprint: Option<Fingerprint>) -> Option<&'static Build> {
+pub fn find(fingerprint: Option<Fingerprint>) -> Option<&'static Build> {
     let fingerprint = fingerprint?;
     BUILDS.iter().find(|b| b.fingerprint == fingerprint)
 }
@@ -112,7 +112,7 @@ pub(crate) fn find(fingerprint: Option<Fingerprint>) -> Option<&'static Build> {
 /// The value of an engine field at a fixed offset; offsets of engine
 /// internals that reflection does not describe live here, next to the
 /// build table that vouches for them.
-pub(crate) mod engine {
+pub mod engine {
     /// A query context: `*ctx` is the query descriptor, the low dword of
     /// `ctx[1]` the 1-based current row.
     pub const CONTEXT_ROW: usize = 8;

@@ -9,8 +9,7 @@
 mod altar_count;
 #[cfg(windows)]
 mod altars;
-#[cfg(windows)]
-mod builds;
+pub mod builds;
 pub mod config;
 #[cfg(windows)]
 mod hook;

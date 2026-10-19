@@ -1,0 +1,53 @@
+name: Game build
+
+# Checks the dedicated server's current Steam build against the build table,
+# so a game update that turns the mods off is known before players notice.
+
+on:
+  schedule:
+    - cron: "17 */3 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  server:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Download the server executable
+        run: |
+          curl -sSLo dd.zip https://github.com/SteamRE/DepotDownloader/releases/download/DepotDownloader_3.4.0/DepotDownloader-linux-x64.zip
+          unzip -q dd.zip -d dd
+          chmod +x dd/DepotDownloader
+          echo enshrouded_server.exe > files.txt
+          dd/DepotDownloader -app 2278520 -depot 2278521 -filelist files.txt -dir server
+
+      - name: Check it
+        id: check
+        run: |
+          set +e
+          cargo run -q --release -p loader --example check_build -- server/enshrouded_server.exe > report.md
+          code=$?
+          cat report.md >> "$GITHUB_STEP_SUMMARY"
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+          echo "fingerprint=$(grep -o '`[0-9a-f]*/[0-9]*`' report.md | head -1 | tr -d '`')" >> "$GITHUB_OUTPUT"
+
+      - name: Open an issue for a build the mods do not support
+        if: steps.check.outputs.code != '0'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          FINGERPRINT: ${{ steps.check.outputs.fingerprint }}
+        run: |
+          title="Server build $FINGERPRINT is not supported"
+          if gh issue list --state open --search "in:title \"$FINGERPRINT\"" --json number --jq '.[].number' | grep -q .; then
+            echo "An issue for $FINGERPRINT is already open."
+          else
+            gh issue create --title "$title" --body-file report.md
+          fi
+          exit 1
