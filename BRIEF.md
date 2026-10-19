@@ -6,10 +6,10 @@ open source later. Quality over speed: no throwaway mods.
 
 ## Principles
 
-- Fair play. A mod makes building and living more comfortable and leaves combat,
-  experience and enemies alone. New items may join the loot when a mod's design
-  needs them, such as a scarce item that pays for something a mod unlocks; the
-  loot tables stay vanilla otherwise.
+- Fair play. A mod makes building, living and playing together more comfortable
+  and leaves combat and enemies alone. New items may join the loot when a mod's
+  design needs them, such as a scarce item that pays for something a mod
+  unlocks; the loot tables stay vanilla otherwise.
 - Every player installs the mods. Client-side changes are acceptable.
 - A mod, once enabled on the world, stays enabled. Removing it is not a
   supported path, though it must never corrupt a save.
@@ -117,30 +117,31 @@ vanilla keeps each survivor once in the world, bound to one bed.
 - A copy of a survivor can stand at any altar, bound to a bed in that altar's
   zone, and only inside a zone.
 - A cluster of N altars holds at most N copies of each survivor.
-- Placing a copy costs a summoning staff: hard to craft or rare as loot, used
-  up on use. The staff comes as a second step, after copies themselves work.
+- Placing a copy costs a summoning staff: hard to craft or rare as loot, used up
+  on use. The staff comes as a second step, after copies themselves work.
 
 Research on how the engine binds survivors to beds and bases, and what a copy
 breaks (quests, dialogue, the save), comes before any code.
 
-Rejected: experience and enemy changes.
+Rejected: enemy changes. Ideas waiting for a turn live in `docs/ideas.md`.
 
 ### Join check and updates
 
-- The server advertises its pack version: Steam name `<name> [ensh-mods
-  <version>]` and the Steam rule `ensh-mods`, set through the flat
-  `ISteamGameServer` API once the server is logged on (done).
+- The server advertises its pack version: Steam name
+  `<name> [ensh-mods
+  <version>]` and the Steam rule `ensh-mods`, set through
+  the flat `ISteamGameServer` API once the server is logged on (done).
 - A modded client reads the rule over A2S_RULES when the game hands it a server
   change, and shows a message box naming the release to install (done).
 - Next: enforce it through the game's own build check. The client sends a
-  `buildVersion` in its connect message and the server drops a peer whose
-  value differs from its own; swapping both for a pack build number refuses
-  vanilla clients and other versions. Unverified: whether the dedicated server
-  has the check switched on, and what a refused client sees.
+  `buildVersion` in its connect message and the server drops a peer whose value
+  differs from its own; swapping both for a pack build number refuses vanilla
+  clients and other versions. Unverified: whether the dedicated server has the
+  check switched on, and what a refused client sees.
 - Updates come from GitHub releases only, never from a game server: a server
   could otherwise push native code into every player's game. A client that
-  updates itself verifies a minisign signature against a key built into the
-  DLL, renames the loaded DLL aside and asks for a restart.
+  updates itself verifies a minisign signature against a key built into the DLL,
+  renames the loaded DLL aside and asks for a restart.
 
 ## Game facts
 

@@ -91,8 +91,9 @@ restart the game. A running game keeps the version it started with.
 
 ## Contributing
 
-Building from source, the code layout, supporting a new game build and making a
-release are in [CONTRIBUTING.md](CONTRIBUTING.md). Report security issues as
+Ideas for the next mods are in [docs/ideas.md](docs/ideas.md). Building from
+source, the code layout, supporting a new game build and making a release are in
+[CONTRIBUTING.md](CONTRIBUTING.md). Report security issues as
 [SECURITY.md](SECURITY.md) describes.
 
 ## Legal
