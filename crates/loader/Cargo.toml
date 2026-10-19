@@ -1,0 +1,22 @@
+[package]
+name = "loader"
+version = "0.1.0"
+description = "The proxy POWRPROF.dll that loads the mods into the Enshrouded server and client."
+edition.workspace = true
+publish.workspace = true
+
+[lib]
+name = "powrprof"
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+keen-reflect = { path = "../keen-reflect" }
+zone-geometry = { path = "../zone-geometry" }
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.59.0", features = [
+    "Win32_Foundation",
+    "Win32_System_LibraryLoader",
+    "Win32_System_SystemInformation",
+    "Win32_System_SystemServices",
+] }
