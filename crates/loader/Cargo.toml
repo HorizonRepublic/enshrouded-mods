@@ -3,6 +3,8 @@ name = "loader"
 version = "0.1.0"
 description = "The proxy POWRPROF.dll that loads the mods into the Enshrouded server and client."
 edition.workspace = true
+license.workspace = true
+repository.workspace = true
 publish.workspace = true
 
 [lib]

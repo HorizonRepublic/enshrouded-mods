@@ -87,6 +87,31 @@ Tests against the real game binaries run when `ENSH_SERVER_EXE` and
 Keen's binaries, decompiled code and data dumps never enter the repository.
 `BRIEF.md` holds the design and the engine facts.
 
+## Legal
+
+Not affiliated with or endorsed by Keen Games. Enshrouded and its logos are
+trademarks of Keen Games.
+
+The repository holds only original code. It reads the game's own reflection data
+at runtime to interoperate with it and contains none of Keen's code, data or
+assets.
+
+Keen's terms of use for Enshrouded (status 29.06.2026, § 3.3 f) forbid creating
+or using mods. Installing these mods is your decision and your risk. They change
+building only: combat, loot, experience and enemies stay vanilla.
+
+## Acknowledgements
+
+The reflection descriptor and system record layouts in `keen-reflect` follow the
+analysis published in [Ember](https://github.com/zachthedev/enshrouded-ember)
+(MIT). Inline hooks use [MinHook](https://github.com/TsudaKageyu/minhook)
+through the [`minhook`](https://crates.io/crates/minhook) crate.
+
+## Licence
+
+MIT, see `LICENSE`. `THIRD-PARTY-NOTICES.md` lists the third-party code in the
+released DLL.
+
 ## Releasing
 
 1. Set `version` in `crates/loader/Cargo.toml`.

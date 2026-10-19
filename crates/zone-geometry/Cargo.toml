@@ -3,6 +3,8 @@ name = "zone-geometry"
 version = "0.1.0"
 description = "Flame altar clusters: pure geometry, independent of the game."
 edition.workspace = true
+license.workspace = true
+repository.workspace = true
 publish.workspace = true
 
 [dev-dependencies]

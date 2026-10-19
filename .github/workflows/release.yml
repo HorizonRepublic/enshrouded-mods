@@ -35,7 +35,7 @@ jobs:
         run: |
           name="ensh-mods-$GITHUB_REF_NAME"
           mkdir "$name"
-          cp target/release/powrprof.dll README.md "$name/"
+          cp target/release/powrprof.dll README.md LICENSE THIRD-PARTY-NOTICES.md "$name/"
           7z a "$name.zip" "$name" > /dev/null
           sha256sum "$name.zip" "$name/powrprof.dll" > SHA256SUMS
 

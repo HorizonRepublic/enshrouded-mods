@@ -3,4 +3,6 @@ name = "keen-reflect"
 version = "0.1.0"
 description = "Reads the reflection data and ECS system records of Keen's Holistic engine from a PE image."
 edition.workspace = true
+license.workspace = true
+repository.workspace = true
 publish.workspace = true
