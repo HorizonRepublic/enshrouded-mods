@@ -127,6 +127,9 @@ spawns a copy where the altar has none and moves the altar's copy otherwise;
 a bed serves only its own altar's copy; turning the setting off lets vanilla
 remove the copies safely. A modded client lets the staff assign a bed to a
 copy at any altar; checked in game with four copies, each in its own bed.
+Each NPC's own bed check (0x1401ee250) also fails for a bed at another altar
+than the copy's home, so the game itself clears a bed a copy inherited or kept,
+whatever the cause.
 Engine facts and addresses: `research/q7`, `q9`,
 `q10` notes (local).
 
@@ -135,8 +138,6 @@ Open:
 - The client shows one status per survivor, written by every copy in turn, so
   "no bed" can show for a copy that sleeps in one (client `ui_npc_status`
   0x14045aae0). Either combine the copies' bed bits, or show each copy.
-- A stale bed held by a copy of another altar is cleared only when the bed
-  changes; a hook on the bed check 0x1401ee250 would let vanilla clear it.
 - The custom summoning staff (loot, charges) and dev tools for test servers.
 
 Rejected: enemy changes. Ideas waiting for a turn live in `docs/ideas.md`.

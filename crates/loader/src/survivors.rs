@@ -14,7 +14,10 @@
 //!   survivor, so the move system skips all but the target for a moment;
 //! - `npc_bed` gets the copy of the bed's altar, so each copy keeps its bed;
 //!   `npc_bed_init` and the cursor check get no copy while copies exist,
-//!   which leaves the binding to `npc_bed` and skips a distance check.
+//!   which leaves the binding to `npc_bed` and skips a distance check;
+//! - each NPC's own bed check fails for a bed at another altar, so the game
+//!   clears a bed a copy inherited or kept from before, as it clears any bed
+//!   that is no longer its.
 //!
 //! Callers are told apart by the lookup's return address, which a naked
 //! stub hands over with the caller's stack, where the callers keep the
@@ -37,6 +40,9 @@ static ORIGINAL_LOOKUP: AtomicUsize = AtomicUsize::new(0);
 static ORIGINAL_CURSOR_LOOKUP: AtomicUsize = AtomicUsize::new(0);
 static ORIGINAL_MOVE: AtomicUsize = AtomicUsize::new(0);
 static ORIGINAL_UPDATE: AtomicUsize = AtomicUsize::new(0);
+static ORIGINAL_BED_CHECK: AtomicUsize = AtomicUsize::new(0);
+
+type BedCheck = unsafe extern "system" fn(ctx: *mut u8) -> u8;
 
 type Update =
     unsafe extern "system" fn(bases: *mut u8, npc: *const u32, state: usize, flag: usize) -> usize;
@@ -143,6 +149,13 @@ pub(crate) fn install(build: &Build, base: usize, per_altar: bool) -> Result<(),
             crate::hook::install(at(build.npc_update), update_detour as Update as usize)
         }?;
         ORIGINAL_UPDATE.store(original, Ordering::Release);
+        let original = unsafe {
+            crate::hook::install(
+                at(build.npc_bed_check),
+                bed_check_detour as BedCheck as usize,
+            )
+        }?;
+        ORIGINAL_BED_CHECK.store(original, Ordering::Release);
         ON.store(true, Ordering::Release);
     }
     Ok(())
@@ -553,6 +566,90 @@ unsafe extern "system" fn update_detour(
     }
     let original: Update = unsafe { std::mem::transmute(ORIGINAL_UPDATE.load(Ordering::Acquire)) };
     unsafe { original(bases, npc, state, flag) }
+}
+
+/// An NPC's behaviour context: the ECS context first, then its components.
+const NPC_TRANSFORM: usize = 0x168;
+const NPC_SAVED_STATE: usize = 0x1e0;
+const NPC_COMMON: usize = 0x300;
+const NPC_STATE: usize = 0x450;
+
+/// The game's check that an NPC's bed is still its own, made stricter: a bed
+/// at another altar than the copy's home is not. The game then clears the
+/// bed itself. Anything unknown keeps the game's answer.
+unsafe extern "system" fn bed_check_detour(ctx: *mut u8) -> u8 {
+    let original: BedCheck =
+        unsafe { std::mem::transmute(ORIGINAL_BED_CHECK.load(Ordering::Acquire)) };
+    let valid = unsafe { original(ctx) };
+    if valid == 0 || !ON.load(Ordering::Acquire) || ctx.is_null() {
+        return valid;
+    }
+    match std::panic::catch_unwind(|| unsafe { foreign_bed(ctx as usize) }) {
+        Ok(true) => 0,
+        Ok(false) => valid,
+        Err(_) => {
+            if ON.swap(false, Ordering::AcqRel) {
+                warn!("survivors per altar off, vanilla from now on: the bed check panicked");
+            }
+            valid
+        }
+    }
+}
+
+/// Whether this NPC holds a bed at another altar than its home's.
+unsafe fn foreign_bed(ctx: usize) -> bool {
+    let (common, state, saved, transform) = unsafe {
+        (
+            read::<usize>(ctx + NPC_COMMON),
+            read::<usize>(ctx + NPC_STATE),
+            read::<*const u8>(ctx + NPC_SAVED_STATE),
+            read::<*const u8>(ctx + NPC_TRANSFORM),
+        )
+    };
+    if common == 0 || state == 0 {
+        return false;
+    }
+    let (bed, npc) = unsafe { (read::<u32>(common + NPC_COMMON_BED), read::<u32>(state)) };
+    let ecs = unsafe { read::<*mut u64>(ctx) };
+    let Some(bed_at) = (unsafe { position_of(ecs, bed) }) else {
+        return false;
+    };
+    let home = unsafe { home(saved, transform) };
+    let Ok(slot) = SHARED.lock() else {
+        return false;
+    };
+    let Some(shared) = slot.as_ref() else {
+        return false;
+    };
+    let copies = &shared.copies;
+    if !copies.knows_altars() || copies.copies_of(npc).len() <= 1 {
+        return false;
+    }
+    let (Some(mine), Some(beds)) = (copies.altar_at(home), copies.altar_at(bed_at)) else {
+        return false;
+    };
+    if CHECK_LOG.fetch_add(1, Ordering::Relaxed) < 4 {
+        info!("survivor {npc:#010x}: bed check, bed {bed} at altar {beds}, home at altar {mine}");
+    }
+    if mine == beds {
+        return false;
+    }
+    log_foreign_bed(npc, bed, mine, beds);
+    true
+}
+
+/// The first bed checks, for testing.
+static CHECK_LOG: AtomicUsize = AtomicUsize::new(0);
+static FOREIGN_BEDS: Mutex<Vec<(u32, u32)>> = Mutex::new(Vec::new());
+
+/// Each bed taken from a copy, once.
+fn log_foreign_bed(npc: u32, bed: u32, mine: u64, beds: u64) {
+    if let Ok(mut seen) = FOREIGN_BEDS.lock()
+        && !seen.contains(&(npc, bed))
+    {
+        seen.push((npc, bed));
+        info!("survivor {npc:#010x}: bed {bed} at altar {beds} freed from a copy of altar {mine}");
+    }
 }
 
 /// Lets only the copy a summoning staff moves take the move command.

@@ -74,6 +74,9 @@ pub struct Build {
     /// `update(bases, &npc, state, flag)`: refreshes a survivor's record
     /// (base, happiness) from the entity being checked.
     pub npc_update: u64,
+    /// `valid(ctx) -> bool`: whether an NPC's `bedId` still names a bed bound
+    /// to it; on false the caller clears `bedId` and searches again.
+    pub npc_bed_check: u64,
 }
 
 const fn guid(hex: &[u8; 32]) -> [u8; 16] {
@@ -126,6 +129,7 @@ pub const BUILDS: &[Build] = &[
         npc_assign_returns: [0xbf541, 0xbf5e4],
         npc_roaming_return: 0x1f24f8,
         npc_update: 0x2055f0,
+        npc_bed_check: 0x1ee250,
     },
     Build {
         name: "1.0 client (1269579)",
@@ -159,6 +163,7 @@ pub const BUILDS: &[Build] = &[
         npc_assign_returns: [0, 0],
         npc_roaming_return: 0,
         npc_update: 0,
+        npc_bed_check: 0,
     },
 ];
 
