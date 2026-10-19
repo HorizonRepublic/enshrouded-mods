@@ -45,6 +45,9 @@ pub struct Build {
     /// `server_change(provider, request)`: the client is asked to join the
     /// server whose `ip:port` starts `request`; 0 on the server.
     pub server_change: u64,
+    /// `lookup(bases, &npc) -> entity`: the base system's survivor map; 0 on
+    /// the client.
+    pub npc_lookup: u64,
 }
 
 const fn guid(hex: &[u8; 32]) -> [u8; 16] {
@@ -85,6 +88,7 @@ pub const BUILDS: &[Build] = &[
         seam_check: 0x93e210,
         max_altars: 0x931860,
         server_change: 0,
+        npc_lookup: 0x202e80,
     },
     Build {
         name: "1.0 client (1269579)",
@@ -106,6 +110,7 @@ pub const BUILDS: &[Build] = &[
         seam_check: 0xe899f0,
         max_altars: 0xe7d070,
         server_change: 0x107d200,
+        npc_lookup: 0,
     },
 ];
 

@@ -106,6 +106,13 @@ pub(crate) fn start(forwarded: Option<usize>) {
         install_seam();
     }
 
+    if build.npc_lookup != 0 {
+        match crate::npc_probe::install(image.base as usize + build.npc_lookup as usize) {
+            Ok(()) => info!("survivor probe on (read only)"),
+            Err(e) => warn!("survivor probe off: {e}"),
+        }
+    }
+
     if build.role == crate::builds::Role::Server
         && let Some(dir) = exe.parent()
     {

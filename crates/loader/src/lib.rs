@@ -18,6 +18,8 @@ pub mod join;
 #[cfg(windows)]
 pub mod log;
 #[cfg(windows)]
+mod npc_probe;
+#[cfg(windows)]
 mod proxy;
 pub mod seam;
 #[cfg(windows)]
