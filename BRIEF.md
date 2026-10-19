@@ -6,8 +6,10 @@ open source later. Quality over speed: no throwaway mods.
 
 ## Principles
 
-- Fair play. A mod makes building and living more comfortable; it never touches
-  combat, loot, experience or enemies.
+- Fair play. A mod makes building and living more comfortable and leaves combat,
+  experience and enemies alone. New items may join the loot when a mod's design
+  needs them, such as a scarce item that pays for something a mod unlocks; the
+  loot tables stay vanilla otherwise.
 - Every player installs the mods. Client-side changes are acceptable.
 - A mod, once enabled on the world, stays enabled. Removing it is not a
   supported path, though it must never corrupt a save.
@@ -107,8 +109,21 @@ Open:
   consolidation between chests needs runtime hooks; revisit once the hook layer
   exists.
 
-Rejected: an NPC per house (houses are close, one base serves everyone),
-experience, loot and enemy changes.
+### NPCs per base (next)
+
+Four separate bases want their own Blacksmith and the other survivors, while
+vanilla keeps each survivor once in the world, bound to one bed.
+
+- A copy of a survivor can stand at any altar, bound to a bed in that altar's
+  zone, and only inside a zone.
+- A cluster of N altars holds at most N copies of each survivor.
+- Placing a copy costs a summoning staff: hard to craft or rare as loot, used
+  up on use. The staff comes as a second step, after copies themselves work.
+
+Research on how the engine binds survivors to beds and bases, and what a copy
+breaks (quests, dialogue, the save), comes before any code.
+
+Rejected: experience and enemy changes.
 
 ## Game facts
 
