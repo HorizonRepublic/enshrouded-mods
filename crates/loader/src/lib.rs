@@ -12,6 +12,7 @@ mod altar_count;
 mod altars;
 pub mod builds;
 pub mod config;
+pub mod copies;
 #[cfg(windows)]
 mod ecs;
 #[cfg(windows)]
