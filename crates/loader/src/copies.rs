@@ -133,6 +133,15 @@ impl Copies {
         self.homes.remove(&entity);
     }
 
+    /// Every kept copy of `survivor` with its home.
+    pub fn copies_of(&self, survivor: Survivor) -> Vec<(Entity, [i64; 3])> {
+        self.homes
+            .iter()
+            .filter(|(_, (s, _))| *s == survivor)
+            .map(|(&e, &(_, home))| (e, home))
+            .collect()
+    }
+
     /// Whether any altar zone is known yet.
     pub fn knows_altars(&self) -> bool {
         !self.altars.is_empty()

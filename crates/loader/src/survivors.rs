@@ -93,6 +93,10 @@ const UNIQUE_SAVED_STATE: usize = 0x40;
 const UNIQUE_TRANSFORM: usize = 0x48;
 const BED_CONTEXT: usize = 0x40;
 const BED_TRANSFORM: usize = 0x48;
+/// `npc_bed`'s iterator holds a pointer to `NpcCommon`'s type index at 0xa0;
+/// `NpcCommon.bedId` sits at 0x48.
+const BED_NPC_COMMON_TYPE: usize = 0xa0;
+const NPC_COMMON_BED: usize = 0x48;
 const ASSIGN_CONTEXT: usize = 0x30;
 /// `player_assign_npc` keeps the player's targets at 0x40; the bed is the
 /// selected target at 0x85c.
@@ -277,12 +281,16 @@ unsafe fn resolve(found: u32, npc: u32, caller: usize, frame: usize) -> u32 {
     if bed {
         unsafe { calibrate(read(frame + BED_CONTEXT), read(frame + BED_TRANSFORM)) };
     }
-    if copies.count(npc) <= 1 {
+    if copies.copies_of(npc).len() <= 1 {
         return found;
     }
     if bed {
+        let ctx: *mut u64 = unsafe { read(frame + BED_CONTEXT) };
         let position = unsafe { cells_fixed(read(read::<usize>(frame + BED_TRANSFORM))) };
-        return copies.at(npc, position, found);
+        let kind = unsafe { read::<u16>(read::<usize>(frame + BED_NPC_COMMON_TYPE)) };
+        let answer = unsafe { bed_owner(copies, npc, ctx, kind, position, found) };
+        log_bed(npc, unsafe { crate::ecs::entity(ctx) }, answer);
+        return answer;
     }
     if assign || roaming {
         // The bed being assigned, or the player setting the range.
@@ -304,6 +312,56 @@ unsafe fn resolve(found: u32, npc: u32, caller: usize, frame: usize) -> u32 {
         };
     }
     0
+}
+
+/// The copy a bed belongs to: the copy already sleeping in it, else the
+/// nearest copy without a bed, else the nearest copy.
+unsafe fn bed_owner(
+    copies: &Copies,
+    npc: u32,
+    ctx: *mut u64,
+    kind: u16,
+    bed_at: [i64; 3],
+    found: u32,
+) -> u32 {
+    let bed = unsafe { crate::ecs::entity(ctx) };
+    let read_component: ComponentRead =
+        unsafe { std::mem::transmute(COMPONENT_READ.load(Ordering::Acquire)) };
+    let distance =
+        |home: &[i64; 3]| -> i128 { (0..3).map(|a| ((home[a] - bed_at[a]) as i128).pow(2)).sum() };
+    let mut candidates: Vec<(u32, [i64; 3], u32)> = copies
+        .copies_of(npc)
+        .into_iter()
+        .map(|(entity, home)| {
+            let common = unsafe { read_component(ctx, &kind, entity) };
+            let sleeps_in = if common.is_null() {
+                0
+            } else {
+                unsafe { read::<u32>(common as usize + NPC_COMMON_BED) }
+            };
+            (entity, home, sleeps_in)
+        })
+        .collect();
+    if let Some(&(entity, _, _)) = candidates
+        .iter()
+        .find(|(_, _, sleeps)| *sleeps == bed && bed != 0)
+    {
+        return entity;
+    }
+    candidates.sort_by_key(|(entity, home, sleeps)| (*sleeps != 0, distance(home), *entity));
+    candidates
+        .first()
+        .map(|(entity, _, _)| *entity)
+        .unwrap_or(found)
+}
+
+static BED_LOG: AtomicUsize = AtomicUsize::new(0);
+
+/// The first bed decisions, for testing.
+fn log_bed(npc: u32, bed: u32, owner: u32) {
+    if BED_LOG.fetch_add(1, Ordering::Relaxed) < 40 {
+        info!("survivor {npc:#010x}: bed {bed} goes to {owner}");
+    }
 }
 
 /// Learns the type index of `CurrentTransform` from a bed whose transform
