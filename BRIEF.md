@@ -60,30 +60,33 @@ Decided (2026-10-19):
   see one box per base. Growing the union of boxes by k cells on every side
   equals growing each box by k cells, so the cluster is exactly the union of
   its members' boxes, each grown by the same k.
-- k is rounded to the nearest step: with the budget between the areas at k
-  and k + 1, less than half of that step rounds down to k, half or more
-  rounds up to k + 1. The area therefore misses the budget by at most half a
-  step in either direction, and k is never below 0.
+- k never shrinks a zone when an altar is placed or upgraded, and never
+  gives a cluster less than its budget. A group of altars rounds its own
+  growth to the nearest step (`2 B < A(k) + A(k + 1)`, half a step rounds
+  up). The cluster's k is the least one with which no group of its altars,
+  each at any level up to its current one, is short; every earlier state of
+  the cluster is such a group. This is the least growth with both
+  properties. Finding the shortest group is a maximum-weight closure (union
+  area is a coverage function), solved with one minimum cut per altar; 16
+  level 4 altars in one cluster take about 30 ms, and only when altars
+  change. On simulated bases it gives 1.04 of the lost overlap back on
+  average, against 0.97 for the plain nearest step, which shrank zones in
+  9% of steps.
 - Each member's height becomes the tallest member's, grown around its own
-  centre; k does not apply to height.
+  centre; k does not apply to height. The engine's zones grow around the
+  altar, so heights never shrink either.
 - Geometry is integer only, in voxel-grid cells. Boxes are half-open, like
   the engine's point test (`min <= p < max`), so two boxes touch when one's
   max equals the other's min on an axis and their ranges meet on the other.
 - Clusters of different players merge like any other. Altars are not owned
   by a player; build rights come from the server's user groups.
 - The altar multiplier is a fixed config value applied to
-  `altarsPerFlameLevel`; the hook on the cap of 16 raises the cap to the
-  multiplied table, so the multiplier also works at the highest levels.
+  `altarsPerFlameLevel`. Past 16 altars in the world it needs two hooks:
+  the cap of 16 in the cursor check and the 16-zone limit in base grouping
+  (see Open). Until both exist, the multiplied table stops at 16.
 
 Open:
 
-- Adding an altar can shrink a cluster. The new member raises the budget by
-  its own area, but every member grows by k, so the union can overshoot and
-  k drops. A random search found this in about 6% of additions, by 2 to 6
-  cells (1 to 3 m) on every side. Whatever sits in the lost strip falls out
-  of the base, and water and terrain edits there are not saved. Choose
-  between an exact budget and boxes that never shrink when an altar is
-  added; both must stay independent of placement order.
 - More than 16 altars in the world: the engine groups only the first 16
   zones into bases (see Engine). Until that is hooked, the multiplier must
   keep the world total at 16 or below.

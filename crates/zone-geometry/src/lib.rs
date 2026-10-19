@@ -8,10 +8,18 @@
 //! of every member becomes the tallest member's. Clusters whose grown
 //! footprints touch merge and are recomputed until nothing changes.
 //!
+//! `k` is the least growth with which no group of the cluster's altars, each
+//! at any level up to its current one, is short of its budget (see
+//! `growth`). Placing an altar or raising a level therefore never shrinks a
+//! zone, and no cluster ever gets less than its budget, to the nearest step.
+//!
 //! Everything is integer, in voxel-grid cells. Boxes are half-open
 //! (`min <= p < max`), like the engine's point test. Axis 1 is up; the
 //! footprint is axes 0 and 2. The result depends only on the set of altars,
 //! never on their order.
+
+mod flow;
+mod growth;
 
 /// A world-aligned, half-open box in voxel-grid cells. Axis 1 is up.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -20,13 +28,34 @@ pub struct Box3 {
     pub max: [i64; 3],
 }
 
-/// An altar and its vanilla zone.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+/// An altar and its vanilla zones.
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Altar {
     /// Stable identity, unique within the input. The smallest key in a
     /// cluster names the cluster.
     pub key: u64,
-    pub zone: Box3,
+    /// Its vanilla zone at every level from the first to the current one,
+    /// each inside the next. A zone with an empty footprint, such as level
+    /// 0's, takes part in nothing.
+    pub levels: Vec<Box3>,
+}
+
+impl Altar {
+    /// An altar whose zone has only ever been `zone`.
+    pub fn new(key: u64, zone: Box3) -> Self {
+        Self {
+            key,
+            levels: vec![zone],
+        }
+    }
+
+    /// The vanilla zone at the current level.
+    pub fn zone(&self) -> Box3 {
+        *self
+            .levels
+            .last()
+            .expect("validated: every altar has a level")
+    }
 }
 
 /// An altar's zone after clustering.
@@ -45,6 +74,10 @@ pub enum ClusterError {
     DuplicateKey(u64),
     /// `min > max` on some axis.
     InvertedBox(u64),
+    /// No zone at all.
+    NoLevels(u64),
+    /// A level's zone does not lie inside the next level's.
+    NotNested(u64),
 }
 
 impl Box3 {
@@ -75,6 +108,10 @@ impl Box3 {
             grown.max[axis] += k;
         }
         grown
+    }
+
+    fn contains(&self, inner: &Box3) -> bool {
+        (0..3).all(|axis| self.min[axis] <= inner.min[axis] && inner.max[axis] <= self.max[axis])
     }
 
     fn height(&self) -> i64 {
@@ -130,21 +167,34 @@ pub fn clusters(altars: &[Altar]) -> Result<Vec<Placement>, ClusterError> {
     if let Some(pair) = altars.windows(2).find(|pair| pair[0].key == pair[1].key) {
         return Err(ClusterError::DuplicateKey(pair[0].key));
     }
-    if let Some(altar) = altars
-        .iter()
-        .find(|a| (0..3).any(|axis| a.zone.min[axis] > a.zone.max[axis]))
-    {
-        return Err(ClusterError::InvertedBox(altar.key));
+    for altar in &altars {
+        if altar.levels.is_empty() {
+            return Err(ClusterError::NoLevels(altar.key));
+        }
+        if altar
+            .levels
+            .iter()
+            .any(|z| (0..3).any(|axis| z.min[axis] > z.max[axis]))
+        {
+            return Err(ClusterError::InvertedBox(altar.key));
+        }
+        if altar
+            .levels
+            .windows(2)
+            .any(|pair| !pair[1].contains(&pair[0]))
+        {
+            return Err(ClusterError::NotNested(altar.key));
+        }
     }
 
     // Altars with an empty footprint (level 0) take part in nothing.
     let active: Vec<usize> = (0..altars.len())
-        .filter(|&i| altars[i].zone.footprint_area() > 0)
+        .filter(|&i| altars[i].zone().footprint_area() > 0)
         .collect();
     let mut groups: Vec<Vec<usize>> = components(active.len(), |a, b| {
         altars[active[a]]
-            .zone
-            .footprint_touches(&altars[active[b]].zone)
+            .zone()
+            .footprint_touches(&altars[active[b]].zone())
     })
     .into_iter()
     .map(|group| group.into_iter().map(|i| active[i]).collect())
@@ -183,7 +233,7 @@ pub fn clusters(altars: &[Altar]) -> Result<Vec<Placement>, ClusterError> {
             key: a.key,
             cluster: a.key,
             growth: 0,
-            zone: a.zone,
+            zone: a.zone(),
         })
         .collect();
     for (group, (growth, boxes)) in groups.iter().zip(grown) {
@@ -203,38 +253,15 @@ pub fn clusters(altars: &[Altar]) -> Result<Vec<Placement>, ClusterError> {
 
 /// The growth and the zones of one cluster, in the order of `members`.
 fn grow(altars: &[Altar], members: &[usize]) -> (i64, Vec<Box3>) {
-    let vanilla: Vec<Box3> = members.iter().map(|&i| altars[i].zone).collect();
-    let budget: i128 = vanilla.iter().map(Box3::footprint_area).sum();
-    let area =
-        |k: i64| union_footprint_area(&vanilla.iter().map(|b| b.grown(k)).collect::<Vec<_>>());
+    let chains: Vec<&[Box3]> = members
+        .iter()
+        .map(|&i| altars[i].levels.as_slice())
+        .collect();
+    let growth = growth::growth(&chains);
 
-    // The largest k whose area still fits the budget. The union never
-    // exceeds the sum, so k = 0 always fits.
-    let mut fits = 0;
-    let mut exceeds = 1;
-    while area(exceeds) <= budget {
-        fits = exceeds;
-        exceeds *= 2;
-    }
-    while exceeds - fits > 1 {
-        let middle = fits + (exceeds - fits) / 2;
-        if area(middle) <= budget {
-            fits = middle;
-        } else {
-            exceeds = middle;
-        }
-    }
-
-    // Round to the nearest step; half a step or more rounds up.
-    let (below, above) = (area(fits), area(fits + 1));
-    let growth = if 2 * (budget - below) < above - below {
-        fits
-    } else {
-        fits + 1
-    };
-
-    let height = vanilla.iter().map(Box3::height).max().unwrap_or(0);
-    let zones = vanilla
+    let current: Vec<Box3> = members.iter().map(|&i| altars[i].zone()).collect();
+    let height = current.iter().map(Box3::height).max().unwrap_or(0);
+    let zones = current
         .iter()
         .map(|b| b.grown(growth).with_height(height))
         .collect();
